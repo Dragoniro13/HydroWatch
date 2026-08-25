@@ -9,14 +9,14 @@ const channelID = "3469733";
 const urlThingSpeak = "https://api.thingspeak.com/channels/3469733/fields/1/last.json";
 
 // REGRA: Nível abaixo de 50.0 cm entra em ALERTA
-const LIMITE_ALERTA = 15.0;
+const LIMITE_ALERTA = 25.0;
 
 // Banco de dados dos piezômetros (valores em centímetros ajustados para maquete/protótipo)
 let listaPiezometros = [
     { id: 'PZ-01', local: 'Montante (Barragem A)', nivel: 0.0, status: 'Alerta', historico: [0, 0, 0, 0, 0, 0] },
-    { id: 'PZ-02', local: 'Jusante (Barragem A)', nivel: 95.0, status: 'Operacional', historico: [90, 91, 92, 93, 94, 95] },
-    { id: 'PZ-03', local: 'Talude Central', nivel: 45.0, status: 'Alerta', historico: [38, 40, 41, 42, 43, 45] },
-    { id: 'PZ-04', local: 'Base Principal', nivel: 110.0, status: 'Operacional', historico: [105, 106, 108, 109, 110, 110] },
+    { id: 'PZ-02', local: 'Jusante (Barragem A)', nivel: 32.0, status: 'Operacional', historico: [90, 91, 92, 93, 94, 95] },
+    { id: 'PZ-03', local: 'Talude Central', nivel: 24.0, status: 'Alerta', historico: [38, 40, 41, 42, 43, 45] },
+    { id: 'PZ-04', local: 'Base Principal', nivel: 50.0, status: 'Operacional', historico: [105, 106, 108, 109, 110, 110] },
     { id: 'PZ-05', local: 'Setor Norte', nivel: 0.0, status: 'Manutenção', historico: [0, 0, 0, 0, 0, 0] }
 ];
 
