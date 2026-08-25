@@ -9,7 +9,7 @@ const channelID = "3469733";
 const urlThingSpeak = "https://api.thingspeak.com/channels/3469733/fields/1/last.json";
 
 // REGRA: Nível abaixo de 50.0 cm entra em ALERTA
-const LIMITE_ALERTA = 50.0;
+const LIMITE_ALERTA = 15.0;
 
 // Banco de dados dos piezômetros (valores em centímetros ajustados para maquete/protótipo)
 let listaPiezometros = [
