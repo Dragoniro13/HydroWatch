@@ -8,15 +8,15 @@ if (typeof Chart !== 'undefined') {
 const channelID = "3469733";
 const urlThingSpeak = "https://api.thingspeak.com/channels/3469733/fields/1/last.json";
 
-// REGRA: Nível abaixo de 10.0m entra em ALERTA
-const LIMITE_ALERTA = 10.0;
+// REGRA: Nível abaixo de 1000 cm (10 metros) entra em ALERTA
+const LIMITE_ALERTA = 1000.0;
 
-// Banco de dados dos piezômetros
+// Banco de dados dos piezômetros (valores padronizados em cm)
 let listaPiezometros = [
     { id: 'PZ-01', local: 'Montante (Barragem A)', nivel: 0.0, status: 'Alerta', historico: [0, 0, 0, 0, 0, 0] },
-    { id: 'PZ-02', local: 'Jusante (Barragem A)', nivel: 12.8, status: 'Operacional', historico: [12.0, 12.2, 12.5, 12.6, 12.8, 12.8] },
-    { id: 'PZ-03', local: 'Talude Central', nivel: 5.8, status: 'Alerta', historico: [3.8, 4.2, 4.8, 5.2, 5.6, 5.8] },
-    { id: 'PZ-04', local: 'Base Principal', nivel: 14.1, status: 'Operacional', historico: [13.8, 13.9, 14.0, 14.1, 14.1, 14.1] },
+    { id: 'PZ-02', local: 'Jusante (Barragem A)', nivel: 1280.0, status: 'Operacional', historico: [1200, 1220, 1250, 1260, 1280, 1280] },
+    { id: 'PZ-03', local: 'Talude Central', nivel: 580.0, status: 'Alerta', historico: [380, 420, 480, 520, 560, 580] },
+    { id: 'PZ-04', local: 'Base Principal', nivel: 1410.0, status: 'Operacional', historico: [1380, 1390, 1400, 1410, 1410, 1410] },
     { id: 'PZ-05', local: 'Setor Norte', nivel: 0.0, status: 'Manutenção', historico: [0, 0, 0, 0, 0, 0] }
 ];
 
@@ -65,9 +65,9 @@ function atualizarInterfaceCompleta() {
     const soma = ativos.reduce((acc, p) => acc + p.nivel, 0);
     const media = ativos.length > 0 ? (soma / ativos.length).toFixed(1) : '0.0';
     const mediaEl = document.getElementById('card-media-nivel');
-    if (mediaEl) mediaEl.innerText = `${media} m`;
+    if (mediaEl) mediaEl.innerText = `${media} cm`;
 
-    // 3. Renderiza a aba Piezômetros
+    // 3. Renderiza a aba Piezômetros (Exibe em centímetros)
     const containerPz = document.getElementById('container-piezometros');
     if (containerPz) {
         containerPz.innerHTML = '';
@@ -80,7 +80,7 @@ function atualizarInterfaceCompleta() {
                         <span id="badge-${pz.id}" class="badge ${badgeClass}">${pz.status}</span>
                     </div>
                     <p><strong>Local:</strong> ${pz.local}</p>
-                    <p><strong>Nível:</strong> <span id="val-${pz.id}">${pz.status === 'Manutenção' ? '--' : pz.nivel.toFixed(1) + ' m'}</span></p>
+                    <p><strong>Nível:</strong> <span id="val-${pz.id}">${pz.status === 'Manutenção' ? '--' : pz.nivel.toFixed(0) + ' cm'}</span></p>
                     <p style="font-size: 0.75rem; color: #6b7280; margin-top: 8px;"><strong>Última Leitura:</strong> <span>${dataHoraAtual}</span></p>
                 </div>`;
         });
@@ -97,7 +97,7 @@ function atualizarInterfaceCompleta() {
                     <td>${dataHoraAtual}</td>
                     <td><strong>${pz.id}</strong></td>
                     <td>${pz.local}</td>
-                    <td><span id="tab-${pz.id}">${pz.status === 'Manutenção' ? '--' : pz.nivel.toFixed(1) + ' m'}</span></td>
+                    <td><span id="tab-${pz.id}">${pz.status === 'Manutenção' ? '--' : pz.nivel.toFixed(0) + ' cm'}</span></td>
                     <td><span class="badge ${badgeClass}">${pz.status}</span></td>
                 </tr>`;
         });
@@ -172,7 +172,7 @@ function atualizarGraficos() {
     }
 }
 
-// Lê os dados diretamente da API do ThingSpeak (substitui o dados.json)
+// Lê os dados diretamente da API do ThingSpeak (em centímetros)
 async function lerDadosDoSensor() {
     try {
         const resposta = await fetch(urlThingSpeak);
@@ -182,12 +182,9 @@ async function lerDadosDoSensor() {
             const novoNivel = parseFloat(dados.field1);
 
             if (!isNaN(novoNivel)) {
-                // Se o valor for maior que 50 (cm), converte para metros
-                const nivelEmMetros = novoNivel > 50 ? novoNivel / 100.0 : novoNivel;
-
-                // Atualiza PZ-01 com a nova leitura vinda da nuvem
-                listaPiezometros[0].nivel = nivelEmMetros;
-                listaPiezometros[0].historico[5] = nivelEmMetros;
+                // Pega o valor exatamente como veio do ThingSpeak (88 cm)
+                listaPiezometros[0].nivel = novoNivel;
+                listaPiezometros[0].historico[5] = novoNivel;
 
                 // Recalcula o status e atualiza toda a interface
                 atualizarInterfaceCompleta();
@@ -203,7 +200,7 @@ window.onload = function() {
     inicializarGraficos();
     atualizarInterfaceCompleta();
 
-    // Consulta imediata e depois a cada 15 segundos (limite do ThingSpeak gratuito)
+    // Consulta imediata e depois a cada 15 segundos
     lerDadosDoSensor();
     setInterval(lerDadosDoSensor, 15000);
 
