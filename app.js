@@ -8,15 +8,15 @@ if (typeof Chart !== 'undefined') {
 const channelID = "3469733";
 const urlThingSpeak = "https://api.thingspeak.com/channels/3469733/fields/1/last.json";
 
-// REGRA: Nível abaixo de 1000 cm (10 metros) entra em ALERTA
-const LIMITE_ALERTA = 1000.0;
+// REGRA: Nível abaixo de 50.0 cm entra em ALERTA
+const LIMITE_ALERTA = 50.0;
 
-// Banco de dados dos piezômetros (valores padronizados em cm)
+// Banco de dados dos piezômetros (valores em centímetros ajustados para maquete/protótipo)
 let listaPiezometros = [
     { id: 'PZ-01', local: 'Montante (Barragem A)', nivel: 0.0, status: 'Alerta', historico: [0, 0, 0, 0, 0, 0] },
-    { id: 'PZ-02', local: 'Jusante (Barragem A)', nivel: 1280.0, status: 'Operacional', historico: [1200, 1220, 1250, 1260, 1280, 1280] },
-    { id: 'PZ-03', local: 'Talude Central', nivel: 580.0, status: 'Alerta', historico: [380, 420, 480, 520, 560, 580] },
-    { id: 'PZ-04', local: 'Base Principal', nivel: 1410.0, status: 'Operacional', historico: [1380, 1390, 1400, 1410, 1410, 1410] },
+    { id: 'PZ-02', local: 'Jusante (Barragem A)', nivel: 95.0, status: 'Operacional', historico: [90, 91, 92, 93, 94, 95] },
+    { id: 'PZ-03', local: 'Talude Central', nivel: 45.0, status: 'Alerta', historico: [38, 40, 41, 42, 43, 45] },
+    { id: 'PZ-04', local: 'Base Principal', nivel: 110.0, status: 'Operacional', historico: [105, 106, 108, 109, 110, 110] },
     { id: 'PZ-05', local: 'Setor Norte', nivel: 0.0, status: 'Manutenção', historico: [0, 0, 0, 0, 0, 0] }
 ];
 
@@ -67,7 +67,7 @@ function atualizarInterfaceCompleta() {
     const mediaEl = document.getElementById('card-media-nivel');
     if (mediaEl) mediaEl.innerText = `${media} cm`;
 
-    // 3. Renderiza a aba Piezômetros (Exibe em centímetros)
+    // 3. Renderiza a aba Piezômetros
     const containerPz = document.getElementById('container-piezometros');
     if (containerPz) {
         containerPz.innerHTML = '';
@@ -80,7 +80,7 @@ function atualizarInterfaceCompleta() {
                         <span id="badge-${pz.id}" class="badge ${badgeClass}">${pz.status}</span>
                     </div>
                     <p><strong>Local:</strong> ${pz.local}</p>
-                    <p><strong>Nível:</strong> <span id="val-${pz.id}">${pz.status === 'Manutenção' ? '--' : pz.nivel.toFixed(0) + ' cm'}</span></p>
+                    <p><strong>Nível:</strong> <span id="val-${pz.id}">${pz.status === 'Manutenção' ? '--' : pz.nivel.toFixed(1) + ' cm'}</span></p>
                     <p style="font-size: 0.75rem; color: #6b7280; margin-top: 8px;"><strong>Última Leitura:</strong> <span>${dataHoraAtual}</span></p>
                 </div>`;
         });
@@ -97,7 +97,7 @@ function atualizarInterfaceCompleta() {
                     <td>${dataHoraAtual}</td>
                     <td><strong>${pz.id}</strong></td>
                     <td>${pz.local}</td>
-                    <td><span id="tab-${pz.id}">${pz.status === 'Manutenção' ? '--' : pz.nivel.toFixed(0) + ' cm'}</span></td>
+                    <td><span id="tab-${pz.id}">${pz.status === 'Manutenção' ? '--' : pz.nivel.toFixed(1) + ' cm'}</span></td>
                     <td><span class="badge ${badgeClass}">${pz.status}</span></td>
                 </tr>`;
         });
@@ -182,7 +182,7 @@ async function lerDadosDoSensor() {
             const novoNivel = parseFloat(dados.field1);
 
             if (!isNaN(novoNivel)) {
-                // Pega o valor exatamente como veio do ThingSpeak (88 cm)
+                // Pega o valor exatamente como veio do ThingSpeak (em cm)
                 listaPiezometros[0].nivel = novoNivel;
                 listaPiezometros[0].historico[5] = novoNivel;
 
