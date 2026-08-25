@@ -4,6 +4,10 @@ if (typeof Chart !== 'undefined') {
     Chart.defaults.borderColor = '#1f2937';
 }
 
+// Configuração da API do ThingSpeak
+const channelID = "3469733";
+const urlThingSpeak = "https://api.thingspeak.com/channels/3469733/fields/1/last.json";
+
 // REGRA: Nível abaixo de 10.0m entra em ALERTA
 const LIMITE_ALERTA = 10.0;
 
@@ -168,26 +172,29 @@ function atualizarGraficos() {
     }
 }
 
-// Lê os dados do arquivo dados.json gravado pelo sensor
+// Lê os dados diretamente da API do ThingSpeak (substitui o dados.json)
 async function lerDadosDoSensor() {
     try {
-        const resposta = await fetch('dados.json?t=' + new Date().getTime());
+        const resposta = await fetch(urlThingSpeak);
         const dados = await resposta.json();
-        const novoNivel = parseFloat(dados.nivel);
+        
+        if (dados && dados.field1 !== undefined && dados.field1 !== null) {
+            const novoNivel = parseFloat(dados.field1);
 
-        if (!isNaN(novoNivel)) {
-            // Se o valor for maior que 50, considera centímetros e converte para metros
-            const nivelEmMetros = novoNivel > 50 ? novoNivel / 100.0 : novoNivel;
+            if (!isNaN(novoNivel)) {
+                // Se o valor for maior que 50 (cm), converte para metros
+                const nivelEmMetros = novoNivel > 50 ? novoNivel / 100.0 : novoNivel;
 
-            // Atualiza PZ-01 com a nova leitura do sensor
-            listaPiezometros[0].nivel = nivelEmMetros;
-            listaPiezometros[0].historico[5] = nivelEmMetros;
+                // Atualiza PZ-01 com a nova leitura vinda da nuvem
+                listaPiezometros[0].nivel = nivelEmMetros;
+                listaPiezometros[0].historico[5] = nivelEmMetros;
 
-            // Recalcula o status e atualiza toda a interface
-            atualizarInterfaceCompleta();
+                // Recalcula o status e atualiza toda a interface
+                atualizarInterfaceCompleta();
+            }
         }
     } catch (erro) {
-        // Aguardando próxima gravação
+        console.error("Aguardando próxima atualização do ThingSpeak...", erro);
     }
 }
 
@@ -196,8 +203,9 @@ window.onload = function() {
     inicializarGraficos();
     atualizarInterfaceCompleta();
 
-    // Consulta o JSON a cada 5 segundos
-    setInterval(lerDadosDoSensor, 5000);
+    // Consulta imediata e depois a cada 15 segundos (limite do ThingSpeak gratuito)
+    lerDadosDoSensor();
+    setInterval(lerDadosDoSensor, 15000);
 
     // Evento de cadastro manual de novos piezômetros
     const formCadastrar = document.getElementById('form-cadastrar');
