@@ -14,8 +14,8 @@ const LIMITE_ALERTA = 4.0;
 // Banco de dados dos piezômetros (valores em centímetros ajustados para maquete/protótipo)
 let listaPiezometros = [
     { id: 'PZ-01', local: 'Montante (Barragem A)', nivel: 0.0, status: 'Alerta', historico: [0, 0, 0, 0, 0, 0] },
-    { id: 'PZ-02', local: 'Jusante (Barragem A)', nivel: 32.0, status: 'Operacional', historico: [10, 21, 8, 13, 24, 35] },
-    { id: 'PZ-03', local: 'Talude Central', nivel: 24.0, status: 'Alerta', historico: [28, 20, 11, 42, 13, 45] },
+    { id: 'PZ-02', local: 'Jusante (Barragem A)', nivel: 32.0, status: 'Operacional', historico: [10, 21, 8, 13, 24, 30] },
+    { id: 'PZ-03', local: 'Talude Central', nivel: 24.0, status: 'Alerta', historico: [28, 20, 11, 10, 5, 3] },
     { id: 'PZ-04', local: 'Base Principal', nivel: 50.0, status: 'Operacional', historico: [45, 56, 38, 59, 20, 5] },
     { id: 'PZ-05', local: 'Setor Norte', nivel: 0.0, status: 'Manutenção', historico: [0, 0, 0, 0, 0, 0] }
 ];
