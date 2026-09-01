@@ -1,17 +1,16 @@
-// Configuração do Chart.js para o modo escuro
+// Configuração do Chart.js para modo escuro
 if (typeof Chart !== 'undefined') {
     Chart.defaults.color = '#9ca3af';
-    Chart.defaults.borderColor = '#1f2937';
+    Chart.defaults.borderColor = '#334155';
 }
 
-// Configuração da API do ThingSpeak
-const channelID = "3469733";
+// API ThingSpeak
 const urlThingSpeak = "https://api.thingspeak.com/channels/3469733/fields/1/last.json";
 
-// REGRA: Nível abaixo de 50.0 cm entra em ALERTA
+// Regra: Nível abaixo de 4.0 cm entra em ALERTA
 const LIMITE_ALERTA = 4.0;
 
-// Banco de dados dos piezômetros (valores em centímetros ajustados para maquete/protótipo)
+// Banco de dados dos piezômetros
 let listaPiezometros = [
     { id: 'PZ-01', local: 'Montante (Barragem A)', nivel: 0.0, status: 'Alerta', historico: [0, 0, 0, 0, 0, 0] },
     { id: 'PZ-02', local: 'Jusante (Barragem A)', nivel: 32.0, status: 'Operacional', historico: [10, 21, 8, 13, 24, 32] },
@@ -23,18 +22,16 @@ let listaPiezometros = [
 let graficoLinhasInstancia = null;
 let graficoPizzaInstancia = null;
 
-// Função para obter data/hora atual formatada
 function obterDataHoraAtual() {
     return new Date().toLocaleString('pt-BR');
 }
 
-// Avalia automaticamente o status de qualquer piezômetro com base no nível
 function calcularStatus(piezometro) {
     if (piezometro.status === 'Manutenção') return 'Manutenção';
     return piezometro.nivel < LIMITE_ALERTA ? 'Alerta' : 'Operacional';
 }
 
-// Função de Navegação entre Abas
+// Navegação de Abas
 function navegar(paginaId, botao) {
     document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
     document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -44,30 +41,31 @@ function navegar(paginaId, botao) {
     if (botao) botao.classList.add('active');
 }
 
-// Atualiza toda a interface (Cards, Tabelas, Badges e Gráficos)
+// Atualização da Interface
 function atualizarInterfaceCompleta() {
     const dataHoraAtual = obterDataHoraAtual();
 
-    // 1. Recalcula o status de todos os piezômetros com base no nível
     listaPiezometros.forEach(pz => {
         pz.status = calcularStatus(pz);
     });
 
-    // 2. Atualiza Cards Superiores do Dashboard
-    const totalEl = document.getElementById('card-total-piezometros');
-    if (totalEl) totalEl.innerText = listaPiezometros.length;
-
+    const total = listaPiezometros.length;
     const criticos = listaPiezometros.filter(p => p.status === 'Alerta').length;
-    const criticosEl = document.getElementById('card-criticos-piezometros');
-    if (criticosEl) criticosEl.innerText = criticos;
-
     const ativos = listaPiezometros.filter(p => p.status !== 'Manutenção');
     const soma = ativos.reduce((acc, p) => acc + p.nivel, 0);
     const media = ativos.length > 0 ? (soma / ativos.length).toFixed(1) : '0.0';
-    const mediaEl = document.getElementById('card-media-nivel');
-    if (mediaEl) mediaEl.innerText = `${media} cm`;
 
-    // 3. Renderiza a aba Piezômetros
+    // Atualiza Tela Inicial (Home)
+    document.getElementById('home-total-pz').innerText = total;
+    document.getElementById('home-criticos-pz').innerText = criticos;
+    document.getElementById('home-media-pz').innerText = `${media} cm`;
+
+    // Atualiza Dashboard
+    document.getElementById('card-total-piezometros').innerText = total;
+    document.getElementById('card-criticos-piezometros').innerText = criticos;
+    document.getElementById('card-media-nivel').innerText = `${media} cm`;
+
+    // Renderiza Cards da Aba Piezômetros
     const containerPz = document.getElementById('container-piezometros');
     if (containerPz) {
         containerPz.innerHTML = '';
@@ -76,17 +74,17 @@ function atualizarInterfaceCompleta() {
             containerPz.innerHTML += `
                 <div class="card pz-card">
                     <div class="pz-header">
-                        <h3 style="color: #ffffff;">${pz.id}</h3>
-                        <span id="badge-${pz.id}" class="badge ${badgeClass}">${pz.status}</span>
+                        <h3>${pz.id}</h3>
+                        <span class="badge ${badgeClass}">${pz.status}</span>
                     </div>
                     <p><strong>Local:</strong> ${pz.local}</p>
-                    <p><strong>Nível:</strong> <span id="val-${pz.id}">${pz.status === 'Manutenção' ? '--' : pz.nivel.toFixed(1) + ' cm'}</span></p>
-                    <p style="font-size: 0.75rem; color: #6b7280; margin-top: 8px;"><strong>Última Leitura:</strong> <span>${dataHoraAtual}</span></p>
+                    <p><strong>Nível:</strong> <span>${pz.status === 'Manutenção' ? '--' : pz.nivel.toFixed(1) + ' cm'}</span></p>
+                    <p style="font-size: 0.75rem; color: #6b7280;"><strong>Leitura:</strong> <span>${dataHoraAtual}</span></p>
                 </div>`;
         });
     }
 
-    // 4. Renderiza a Tabela de Relatórios
+    // Renderiza Relatórios
     const tabela = document.getElementById('tabela-relatorios');
     if (tabela) {
         tabela.innerHTML = '';
@@ -97,13 +95,12 @@ function atualizarInterfaceCompleta() {
                     <td>${dataHoraAtual}</td>
                     <td><strong>${pz.id}</strong></td>
                     <td>${pz.local}</td>
-                    <td><span id="tab-${pz.id}">${pz.status === 'Manutenção' ? '--' : pz.nivel.toFixed(1) + ' cm'}</span></td>
+                    <td><span>${pz.status === 'Manutenção' ? '--' : pz.nivel.toFixed(1) + ' cm'}</span></td>
                     <td><span class="badge ${badgeClass}">${pz.status}</span></td>
                 </tr>`;
         });
     }
 
-    // 5. Atualiza os gráficos
     atualizarGraficos();
 }
 
@@ -172,7 +169,6 @@ function atualizarGraficos() {
     }
 }
 
-// Lê os dados diretamente da API do ThingSpeak (em centímetros)
 async function lerDadosDoSensor() {
     try {
         const resposta = await fetch(urlThingSpeak);
@@ -182,29 +178,23 @@ async function lerDadosDoSensor() {
             const novoNivel = parseFloat(dados.field1);
 
             if (!isNaN(novoNivel)) {
-                // Pega o valor exatamente como veio do ThingSpeak (em cm)
                 listaPiezometros[0].nivel = novoNivel;
                 listaPiezometros[0].historico[5] = novoNivel;
-
-                // Recalcula o status e atualiza toda a interface
                 atualizarInterfaceCompleta();
             }
         }
     } catch (erro) {
-        console.error("Aguardando próxima atualização do ThingSpeak...", erro);
+        console.error("Aguardando leitura do ThingSpeak...", erro);
     }
 }
 
-// Inicialização ao carregar a página
 window.onload = function() {
     inicializarGraficos();
     atualizarInterfaceCompleta();
 
-    // Consulta imediata e depois a cada 15 segundos
     lerDadosDoSensor();
     setInterval(lerDadosDoSensor, 15000);
 
-    // Evento de cadastro manual de novos piezômetros
     const formCadastrar = document.getElementById('form-cadastrar');
     if (formCadastrar) {
         formCadastrar.addEventListener('submit', function(e) {
@@ -216,17 +206,14 @@ window.onload = function() {
             const statusInicial = document.getElementById('input-status').value;
 
             if (nome && local && !isNaN(nivel)) {
-                const novoPz = {
+                listaPiezometros.push({
                     id: nome,
                     local: local,
                     nivel: nivel,
                     status: statusInicial,
                     historico: [nivel, nivel, nivel, nivel, nivel, nivel]
-                };
+                });
 
-                listaPiezometros.push(novoPz);
-
-                // Reinicia gráficos e atualiza interface
                 if (graficoLinhasInstancia) graficoLinhasInstancia.destroy();
                 if (graficoPizzaInstancia) graficoPizzaInstancia.destroy();
                 inicializarGraficos();
