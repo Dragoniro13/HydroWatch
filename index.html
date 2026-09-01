@@ -1,192 +1,842 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-BR" class="dark">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HydroWatch - Sistema de Monitoramento Geotécnico</title>
-    <link rel="stylesheet" href="styles.css">
-    <!-- FontAwesome para Ícones -->
+    <title>GeoMonitor Pro - Sistema de Monitoramento Geotécnico</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- Chart.js para Gráficos -->
+    <!-- Chart.js CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Google Fonts Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        darkBg: '#0b132b',
+                        cardBg: '#1c2541',
+                        accentBlue: '#3b82f6',
+                        accentGreen: '#10b981',
+                        accentYellow: '#f59e0b',
+                        accentRed: '#ef4444'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #0b132b;
+            color: #f1f5f9;
+            font-family: 'Inter', sans-serif;
+        }
+        .page-section {
+            display: none;
+            animation: fadeIn 0.3s ease-in-out forwards;
+        }
+        .page-section.active {
+            display: block;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(6px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .nav-btn.active {
+            background-color: #3b82f6;
+            color: #ffffff;
+            box-shadow: 0 4px 14px rgba(59, 130, 246, 0.4);
+        }
+        .badge-success {
+            background-color: rgba(16, 185, 129, 0.2);
+            color: #34d399;
+            border: 1px solid rgba(16, 185, 129, 0.4);
+        }
+        .badge-warning {
+            background-color: rgba(245, 158, 11, 0.2);
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.4);
+        }
+        .badge-danger {
+            background-color: rgba(239, 68, 68, 0.2);
+            color: #f87171;
+            border: 1px solid rgba(239, 68, 68, 0.4);
+            animation: pulse-glow 1.8s infinite;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 5px rgba(239, 68, 68, 0.4); }
+            50% { box-shadow: 0 0 15px rgba(239, 68, 68, 0.8); }
+        }
+        .glass-card {
+            background: #1c2541;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(12px);
+        }
+        /* Scrollbar custom */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0b132b;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #334155;
+            border-radius: 4px;
+        }
+    </style>
 </head>
-<body>
+<body class="min-h-screen flex flex-col bg-slate-950 text-slate-100 antialiased">
 
-    <!-- Menu Lateral (Sidebar) -->
-    <aside class="sidebar">
-        <div class="logo">
-            <i class="fa-solid fa-droplet"></i>
-            <h2>HydroWatch</h2>
+    <!-- TOP NAVIGATION BAR -->
+    <header class="sticky top-0 z-50 bg-slate-900/90 backdrop-blur-md border-b border-slate-800">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex items-center justify-between h-16">
+                <!-- Logo & Brand -->
+                <div class="flex items-center space-x-3 cursor-pointer" onclick="navegar('pagina-home', document.getElementById('btn-nav-home'))">
+                    <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-400 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                        <i class="fa-solid font-bold fa-mountain-city text-white text-xl"></i>
+                    </div>
+                    <div>
+                        <span class="font-extrabold text-xl tracking-tight bg-gradient-to-r from-blue-400 to-cyan-300 bg-clip-text text-transparent">GeoMonitor</span>
+                        <span class="text-xs font-semibold px-2 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 ml-1">PRO</span>
+                    </div>
+                </div>
+
+                <!-- Navigation Tabs -->
+                <nav class="hidden md:flex space-x-1 bg-slate-800/60 p-1 rounded-xl border border-slate-700/50">
+                    <button id="btn-nav-home" onclick="navegar('pagina-home', this)" class="nav-btn active px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center space-x-2">
+                        <i class="fa-solid fa-house"></i>
+                        <span>Início</span>
+                    </button>
+                    <button id="btn-nav-dashboard" onclick="navegar('pagina-dashboard', this)" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 transition-all flex items-center space-x-2">
+                        <i class="fa-solid fa-chart-line"></i>
+                        <span>Dashboard</span>
+                    </button>
+                    <button id="btn-nav-piezometros" onclick="navegar('pagina-piezometros', this)" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 transition-all flex items-center space-x-2">
+                        <i class="fa-solid fa-gauge-high"></i>
+                        <span>Piezômetros</span>
+                    </button>
+                    <button id="btn-nav-relatorios" onclick="navegar('pagina-relatorios', this)" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 transition-all flex items-center space-x-2">
+                        <i class="fa-solid fa-file-lines"></i>
+                        <span>Relatórios</span>
+                    </button>
+                    <button id="btn-nav-cadastrar" onclick="navegar('pagina-cadastrar', this)" class="nav-btn px-4 py-2 rounded-lg text-sm font-medium text-slate-400 hover:text-slate-200 transition-all flex items-center space-x-2">
+                        <i class="fa-solid fa-plus-circle"></i>
+                        <span>Cadastrar</span>
+                    </button>
+                </nav>
+
+                <!-- Status Live & Clock -->
+                <div class="flex items-center space-x-4">
+                    <div class="hidden lg:flex flex-col text-right">
+                        <span id="relogio-topo" class="text-xs font-mono text-slate-400">00:00:00</span>
+                        <span class="text-[10px] text-slate-500">Horário Oficial</span>
+                    </div>
+                    <div class="flex items-center space-x-2 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-3 py-1.5 rounded-full text-xs font-medium">
+                        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                        <span id="status-thingspeak-text">ThingSpeak Conectado</span>
+                    </div>
+                </div>
+            </div>
         </div>
-        <nav class="nav-menu">
-            <button class="nav-btn active" onclick="navegar('inicio', this)">
-                <i class="fa-solid fa-house"></i> Início
-            </button>
-            <button class="nav-btn" onclick="navegar('dashboard', this)">
-                <i class="fa-solid fa-chart-pie"></i> Dashboard Geral
-            </button>
-            <button class="nav-btn" onclick="navegar('piezometros', this)">
-                <i class="fa-solid fa-tower-observation"></i> Piezômetros
-            </button>
-            <button class="nav-btn" onclick="navegar('relatorios', this)">
-                <i class="fa-solid fa-file-lines"></i> Relatórios
-            </button>
-            <button class="nav-btn" onclick="navegar('cadastrar', this)">
-                <i class="fa-solid fa-plus-circle"></i> Novo Sensor
-            </button>
-        </nav>
-    </aside>
 
-    <!-- Conteúdo Principal -->
-    <main class="main-content">
+        <!-- Mobile Navigation Menu Bar -->
+        <div class="md:hidden flex overflow-x-auto py-2 px-4 space-x-2 border-t border-slate-800 bg-slate-900">
+            <button onclick="navegar('pagina-home', this)" class="nav-btn active shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium">Início</button>
+            <button onclick="navegar('pagina-dashboard', this)" class="nav-btn shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400">Dashboard</button>
+            <button onclick="navegar('pagina-piezometros', this)" class="nav-btn shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400">Piezômetros</button>
+            <button onclick="navegar('pagina-relatorios', this)" class="nav-btn shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400">Relatórios</button>
+            <button onclick="navegar('pagina-cadastrar', this)" class="nav-btn shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-400">Cadastrar</button>
+        </div>
+    </header>
 
-        <!-- ABA 1: TELA INICIAL (HOME) -->
-        <section id="inicio" class="page-section active">
-            <div class="hero-card">
+    <!-- MAIN CONTENT CONTAINER -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+
+        <!-- 1. TELA INICIAL (HOME) -->
+        <section id="pagina-home" class="page-section active space-y-6">
+            <!-- Hero Banner -->
+            <div class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 via-slate-850 to-blue-950 border border-slate-800 p-6 md:p-8 shadow-2xl">
+                <div class="absolute -right-10 -bottom-10 w-64 h-64 bg-blue-500/10 rounded-full blur-3xl pointer-events-none"></div>
+                <div class="relative z-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+                    <div class="max-w-2xl space-y-3">
+                        <div class="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs font-semibold">
+                            <i class="fa-solid fa-shield-halved"></i>
+                            <span>Segurança Geotécnica & Telemetria em Tempo Real</span>
+                        </div>
+                        <h1 class="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
+                            Sistema de Monitoramento Geotécnico
+                        </h1>
+                        <p class="text-slate-400 text-sm md:text-base leading-relaxed">
+                            Acompanhamento contínuo da estabilidade de estruturas e níveis freáticos através da rede de piezômetros com atualização automática via ThingSpeak.
+                        </p>
+                    </div>
+                    <div class="shrink-0 flex flex-col items-stretch sm:flex-row md:flex-col gap-3 w-full sm:w-auto">
+                        <button onclick="navegar('pagina-dashboard', document.getElementById('btn-nav-dashboard'))" class="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-sm transition-all shadow-lg shadow-blue-600/30 flex items-center justify-center space-x-2">
+                            <span>Acessar Dashboard</span>
+                            <i class="fa-solid fa-arrow-right"></i>
+                        </button>
+                        <button onclick="navegar('pagina-piezometros', document.getElementById('btn-nav-piezometros'))" class="px-5 py-3 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-semibold text-sm transition-all flex items-center justify-center space-x-2">
+                            <i class="fa-solid fa-list-check text-blue-400"></i>
+                            <span>Ver Sensores</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Visão Geral de Indicadores (KPI Cards) -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="glass-card p-5 rounded-xl flex items-center justify-between border-l-4 border-l-blue-500">
+                    <div>
+                        <p class="text-xs font-medium text-slate-400">Total de Piezômetros</p>
+                        <h3 id="home-card-total" class="text-2xl font-bold text-white mt-1">--</h3>
+                        <p class="text-[11px] text-slate-500 mt-1">Rede instalada no protótipo</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-network-wired"></i>
+                    </div>
+                </div>
+
+                <div class="glass-card p-5 rounded-xl flex items-center justify-between border-l-4 border-l-red-500">
+                    <div>
+                        <p class="text-xs font-medium text-slate-400">Alertas Críticos</p>
+                        <h3 id="home-card-criticos" class="text-2xl font-bold text-red-400 mt-1">--</h3>
+                        <p class="text-[11px] text-slate-500 mt-1">Nível &lt; 4.0 cm (Atenção)</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                    </div>
+                </div>
+
+                <div class="glass-card p-5 rounded-xl flex items-center justify-between border-l-4 border-l-emerald-500">
+                    <div>
+                        <p class="text-xs font-medium text-slate-400">Nível Médio Atual</p>
+                        <h3 id="home-card-media" class="text-2xl font-bold text-emerald-400 mt-1">--</h3>
+                        <p class="text-[11px] text-slate-500 mt-1">Média dos instrumentos ativos</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-droplet"></i>
+                    </div>
+                </div>
+
+                <div class="glass-card p-5 rounded-xl flex items-center justify-between border-l-4 border-l-amber-500">
+                    <div>
+                        <p class="text-xs font-medium text-slate-400">Nível de Risco Geral</p>
+                        <h3 id="home-card-risco" class="text-2xl font-bold text-amber-400 mt-1">Moderado</h3>
+                        <p class="text-[11px] text-slate-500 mt-1">Canal ThingSpeak #3469733</p>
+                    </div>
+                    <div class="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center text-xl">
+                        <i class="fa-solid fa-shield-virus"></i>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Botões de Ação Rápida e Painel Informativo -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Ações Rápidas -->
+                <div class="glass-card p-6 rounded-2xl space-y-4">
+                    <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-bolt text-amber-400"></i>
+                        <span>Ações Rápidas</span>
+                    </h2>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-1 gap-3">
+                        <button onclick="navegar('pagina-piezometros', document.getElementById('btn-nav-piezometros'))" class="p-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 text-left transition-all flex items-center space-x-3 group">
+                            <div class="w-9 h-9 rounded-lg bg-red-500/10 text-red-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-semibold text-slate-200">Ver Alertas</h4>
+                                <p class="text-xs text-slate-400">Piezômetros em estado crítico</p>
+                            </div>
+                        </button>
+
+                        <button onclick="navegar('pagina-cadastrar', document.getElementById('btn-nav-cadastrar'))" class="p-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 text-left transition-all flex items-center space-x-3 group">
+                            <div class="w-9 h-9 rounded-lg bg-blue-500/10 text-blue-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <i class="fa-solid fa-plus"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-semibold text-slate-200">Novo Piezômetro</h4>
+                                <p class="text-xs text-slate-400">Cadastrar novo ponto de medição</p>
+                            </div>
+                        </button>
+
+                        <button onclick="navegar('pagina-relatorios', document.getElementById('btn-nav-relatorios'))" class="p-3.5 rounded-xl bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/60 text-left transition-all flex items-center space-x-3 group">
+                            <div class="w-9 h-9 rounded-lg bg-emerald-500/10 text-emerald-400 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                <i class="fa-solid fa-table-list"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-sm font-semibold text-slate-200">Gerar Relatórios</h4>
+                                <p class="text-xs text-slate-400">Exportar ou visualizar leituras</p>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Diretrizes Geotécnicas e Regra do Sistema -->
+                <div class="glass-card p-6 rounded-2xl lg:col-span-2 space-y-4">
+                    <h2 class="text-lg font-bold text-white flex items-center space-x-2">
+                        <i class="fa-solid fa-circle-info text-blue-400"></i>
+                        <span>Diretrizes Geotécnicas & Regras de Operação</span>
+                    </h2>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-2">
+                            <div class="flex items-center space-x-2 text-red-400 font-semibold text-sm">
+                                <i class="fa-solid fa-triangle-exclamation"></i>
+                                <span>Regra de Alerta (&lt; 4.0 cm)</span>
+                            </div>
+                            <p class="text-xs text-slate-400 leading-relaxed">
+                                Para protótipos e maquetes físicas, leituras freáticas abaixo do limite operacional de <strong>4.0 cm</strong> disparam o status automático de <span class="text-red-400 font-medium">Alerta</span>, indicando anomalia de rebaixamento ou secagem acelerada.
+                            </p>
+                        </div>
+
+                        <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-2">
+                            <div class="flex items-center space-x-2 text-emerald-400 font-semibold text-sm">
+                                <i class="fa-solid fa-tower-cell"></i>
+                                <span>Integração ThingSpeak (PZ-01)</span>
+                            </div>
+                            <p class="text-xs text-slate-400 leading-relaxed">
+                                O piezômetro <strong>PZ-01</strong> recebe telemetria contínua via requisição HTTP GET no ThingSpeak (Campo 1). O ciclo automático realiza consultas a cada 15 segundos.
+                            </p>
+                        </div>
+                    </div>
+
+                    <!-- Log de Eventos Recentes -->
+                    <div class="bg-slate-900/80 p-4 rounded-xl border border-slate-800 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400">Feed de Atualizações</h4>
+                            <span class="text-[10px] text-slate-500">Auto-refresh (15s)</span>
+                        </div>
+                        <ul id="feed-eventos-home" class="space-y-2 text-xs">
+                            <li class="flex items-center justify-between text-slate-300 border-b border-slate-800 pb-1">
+                                <span class="flex items-center space-x-2">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                                    <span>Inicialização do sistema concluída</span>
+                                </span>
+                                <span class="text-slate-500 text-[10px]">Agora</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. DASHBOARD PAGE -->
+        <section id="pagina-dashboard" class="page-section space-y-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1>Sistema de Monitoramento Piezométrico</h1>
-                    <p>Acompanhamento geotécnico em tempo real via telemetria IoT.</p>
+                    <h2 class="text-2xl font-bold text-white">Dashboard do Telemonitoramento</h2>
+                    <p class="text-xs text-slate-400">Análise de tendências de nível piezométrico e distribuição operacional</p>
                 </div>
-                <div class="status-pill">
-                    <span class="dot pulse"></span>
-                    <span>API ThingSpeak Conectada</span>
+                <button onclick="lerDadosDoSensor()" class="self-start md:self-auto px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-semibold text-slate-200 transition-all flex items-center space-x-2">
+                    <i class="fa-solid fa-rotate text-blue-400"></i>
+                    <span>Forçar Leitura ThingSpeak</span>
+                </button>
+            </div>
+
+            <!-- Dashboard KPI Mini-Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div class="glass-card p-4 rounded-xl border-l-4 border-l-blue-500">
+                    <p class="text-xs font-medium text-slate-400">Total de Instrumentos</p>
+                    <h4 id="card-total-piezometros" class="text-xl font-extrabold text-white mt-1">--</h4>
+                </div>
+                <div class="glass-card p-4 rounded-xl border-l-4 border-l-red-500">
+                    <p class="text-xs font-medium text-slate-400">Instrumentos em Alerta</p>
+                    <h4 id="card-criticos-piezometros" class="text-xl font-extrabold text-red-400 mt-1">--</h4>
+                </div>
+                <div class="glass-card p-4 rounded-xl border-l-4 border-l-emerald-500">
+                    <p class="text-xs font-medium text-slate-400">Nível Médio dos Piezômetros</p>
+                    <h4 id="card-media-nivel" class="text-xl font-extrabold text-emerald-400 mt-1">--</h4>
                 </div>
             </div>
 
-            <div class="cards-grid">
-                <div class="card card-stat">
-                    <i class="fa-solid fa-gauge-high stat-icon"></i>
-                    <div>
-                        <h4>Total de Piezômetros</h4>
-                        <p id="home-total-pz" class="stat-val">0</p>
+            <!-- Charts Container -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Line Chart -->
+                <div class="glass-card p-5 rounded-2xl lg:col-span-2 space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-bold text-slate-200 flex items-center space-x-2">
+                            <i class="fa-solid fa-chart-line text-blue-400"></i>
+                            <span>Histórico Comparativo de Níveis (cm)</span>
+                        </h3>
+                        <span class="text-[11px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700">Tempo Real</span>
+                    </div>
+                    <div class="relative w-full h-72">
+                        <canvas id="graficoComparativo"></canvas>
                     </div>
                 </div>
-                <div class="card card-stat">
-                    <i class="fa-solid fa-triangle-exclamation stat-icon text-danger"></i>
-                    <div>
-                        <h4>Sensores em Alerta</h4>
-                        <p id="home-criticos-pz" class="stat-val text-danger">0</p>
-                    </div>
-                </div>
-                <div class="card card-stat">
-                    <i class="fa-solid fa-water stat-icon"></i>
-                    <div>
-                        <h4>Média do Nível</h4>
-                        <p id="home-media-pz" class="stat-val">0.0 cm</p>
-                    </div>
-                </div>
-            </div>
 
-            <div class="grid-2col">
-                <div class="card">
-                    <h3><i class="fa-solid fa-bolt"></i> Ações Rápidas</h3>
-                    <div class="quick-actions">
-                        <button onclick="navegar('dashboard', document.querySelectorAll('.nav-btn')[1])" class="btn btn-primary">
-                            <i class="fa-solid fa-chart-line"></i> Ver Gráficos do Dashboard
-                        </button>
-                        <button onclick="navegar('cadastrar', document.querySelectorAll('.nav-btn')[4])" class="btn btn-secondary">
-                            <i class="fa-solid fa-plus"></i> Cadastrar Piezômetro
-                        </button>
+                <!-- Donut Chart -->
+                <div class="glass-card p-5 rounded-2xl space-y-4">
+                    <div class="flex items-center justify-between">
+                        <h3 class="text-sm font-bold text-slate-200 flex items-center space-x-2">
+                            <i class="fa-solid fa-chart-pie text-amber-400"></i>
+                            <span>Distribuição de Status</span>
+                        </h3>
                     </div>
-                </div>
-                <div class="card">
-                    <h3><i class="fa-solid fa-circle-info"></i> Regras do Sistema</h3>
-                    <ul class="info-list">
-                        <li><strong>Limite Crítico:</strong> Nível abaixo de <code>4.0 cm</code> entra automaticamente em <span>ALERTA</span>.</li>
-                        <li><strong>Atualização Automática:</strong> Dados atualizados a cada 15 segundos via ThingSpeak.</li>
-                        <li><strong>Modo Protótipo:</strong> Valores ajustados em centímetros.</li>
-                    </ul>
-                </div>
-            </div>
-        </section>
-
-        <!-- ABA 2: DASHBOARD -->
-        <section id="dashboard" class="page-section">
-            <h2>Dashboard Geral</h2>
-            <div class="cards-grid">
-                <div class="card">
-                    <h4>Piezômetros Ativos</h4>
-                    <p id="card-total-piezometros" class="stat-val">0</p>
-                </div>
-                <div class="card">
-                    <h4>Alertas Críticos</h4>
-                    <p id="card-criticos-piezometros" class="stat-val text-danger">0</p>
-                </div>
-                <div class="card">
-                    <h4>Nível Médio</h4>
-                    <p id="card-media-nivel" class="stat-val">0.0 cm</p>
-                </div>
-            </div>
-
-            <div class="grid-2col">
-                <div class="card">
-                    <h3>Comparativo Histórico de Níveis</h3>
-                    <canvas id="graficoComparativo"></canvas>
-                </div>
-                <div class="card">
-                    <h3>Distribuição de Status</h3>
-                    <canvas id="graficoPizza"></canvas>
+                    <div class="relative w-full h-72 flex items-center justify-center">
+                        <canvas id="graficoPizza"></canvas>
+                    </div>
                 </div>
             </div>
         </section>
 
-        <!-- ABA 3: PIEZÔMETROS -->
-        <section id="piezometros" class="page-section">
-            <h2>Sensores Monitorados</h2>
-            <div id="container-piezometros" class="cards-grid"></div>
-        </section>
+        <!-- 3. PIEZÔMETROS PAGE -->
+        <section id="pagina-piezometros" class="page-section space-y-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white">Rede de Piezômetros</h2>
+                    <p class="text-xs text-slate-400">Cartões individuais de telemetria e estado operacional</p>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <span class="text-xs text-slate-400">Legenda:</span>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Operacional</span>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">Alerta (&lt;4.0 cm)</span>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">Manutenção</span>
+                </div>
+            </div>
 
-        <!-- ABA 4: RELATÓRIOS -->
-        <section id="relatorios" class="page-section">
-            <h2>Relatório de Leituras</h2>
-            <div class="card">
-                <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Data / Hora</th>
-                            <th>ID</th>
-                            <th>Localização</th>
-                            <th>Nível</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody id="tabela-relatorios"></tbody>
-                </table>
+            <!-- Container dos Cards dinamico -->
+            <div id="container-piezometros" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+                <!-- Preenchido via JS -->
             </div>
         </section>
 
-        <!-- ABA 5: CADASTRAR -->
-        <section id="cadastrar" class="page-section">
-            <h2>Cadastrar Novo Piezômetro</h2>
-            <div class="card form-card">
-                <form id="form-cadastrar">
-                    <div class="form-group">
-                        <label for="input-nome">Identificador (Ex: PZ-06)</label>
-                        <input type="text" id="input-nome" required placeholder="Digite o ID">
-                    </div>
-                    <div class="form-group">
-                        <label for="input-local">Localização</label>
-                        <input type="text" id="input-local" required placeholder="Ex: Talude Leste">
-                    </div>
-                    <div class="form-group">
-                        <label for="input-nivel">Nível Inicial (cm)</label>
-                        <input type="number" step="0.1" id="input-nivel" required placeholder="0.0">
-                    </div>
-                    <div class="form-group">
-                        <label for="input-status">Status Inicial</label>
-                        <select id="input-status">
-                            <option value="Operacional">Operacional</option>
-                            <option value="Alerta">Alerta</option>
-                            <option value="Manutenção">Manutenção</option>
-                        </select>
-                    </div>
-                    <button type="submit" class="btn btn-primary">Salvar Piezômetro</button>
-                </form>
+        <!-- 4. RELATÓRIOS PAGE -->
+        <section id="pagina-relatorios" class="page-section space-y-6">
+            <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-white">Relatórios Geotécnicos</h2>
+                    <p class="text-xs text-slate-400">Tabela consolidada de leituras e carimbo de data/hora</p>
+                </div>
+                <button onclick="window.print()" class="self-start md:self-auto px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-xs font-semibold text-white transition-all flex items-center space-x-2 shadow-lg shadow-blue-600/20">
+                    <i class="fa-solid fa-print"></i>
+                    <span>Imprimir Relatório</span>
+                </button>
+            </div>
+
+            <div class="glass-card rounded-2xl overflow-hidden border border-slate-800 shadow-xl">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-900/90 text-slate-400 text-xs font-semibold uppercase tracking-wider border-b border-slate-800">
+                                <th class="p-4">Data / Hora</th>
+                                <th class="p-4">Identificador</th>
+                                <th class="p-4">Localização</th>
+                                <th class="p-4">Nível Freático</th>
+                                <th class="p-4">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="tabela-relatorios" class="divide-y divide-slate-800/60 text-sm">
+                            <!-- Preenchido via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. CADASTRAR PIEZÔMETRO PAGE -->
+        <section id="pagina-cadastrar" class="page-section space-y-6">
+            <div class="max-w-2xl mx-auto space-y-6">
+                <div>
+                    <h2 class="text-2xl font-bold text-white">Cadastrar Novo Piezômetro</h2>
+                    <p class="text-xs text-slate-400">Adicione um novo sensor ou ponto de medição manual à estrutura de monitoramento</p>
+                </div>
+
+                <div class="glass-card p-6 md:p-8 rounded-2xl border border-slate-800 shadow-2xl">
+                    <form id="form-cadastrar" class="space-y-5">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1.5">Identificador do Instrumento</label>
+                                <input type="text" id="input-nome" placeholder="Ex: PZ-06" required class="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1.5">Localização / Setor</label>
+                                <input type="text" id="input-local" placeholder="Ex: Bermas Intermediárias" required class="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all">
+                            </div>
+                        </div>
+
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1.5">Nível Inicial (cm)</label>
+                                <input type="number" step="0.1" id="input-nivel" placeholder="Ex: 15.5" required class="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white placeholder-slate-500 text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all">
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-medium text-slate-300 mb-1.5">Status Inicial</label>
+                                <select id="input-status" class="w-full px-4 py-2.5 rounded-xl bg-slate-900 border border-slate-700 text-white text-sm focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 transition-all">
+                                    <option value="Operacional">Operacional</option>
+                                    <option value="Alerta">Alerta</option>
+                                    <option value="Manutenção">Manutenção</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="pt-3 flex justify-end">
+                            <button type="submit" class="w-full sm:w-auto px-6 py-3 rounded-xl bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-semibold text-sm transition-all shadow-lg shadow-blue-600/30 flex items-center justify-center space-x-2">
+                                <i class="fa-solid fa-floppy-disk"></i>
+                                <span>Salvar Piezômetro</span>
+                            </button>
+                        </div>
+                    </form>
+                </div>
             </div>
         </section>
 
     </main>
 
-    <script src="app.js"></script>
+    <!-- FOOTER -->
+    <footer class="mt-auto border-t border-slate-800 bg-slate-900/60 py-4 text-center text-xs text-slate-500">
+        <div class="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-2">
+            <p>&copy; 2026 GeoMonitor PRO - Sistema de Monitoramento Geotécnico. Todos os direitos reservados.</p>
+            <p>Canal ThingSpeak: <span class="font-mono text-slate-400">3469733</span> | Protótipo de Engenharia</p>
+        </div>
+    </footer>
+
+    <!-- JAVASCRIPT LOGIC -->
+    <script>
+        // Configuração do Chart.js para o modo escuro
+        if (typeof Chart !== 'undefined') {
+            Chart.defaults.color = '#9ca3af';
+            Chart.defaults.borderColor = '#1f2937';
+        }
+
+        // Configuração da API do ThingSpeak
+        const channelID = "3469733";
+        const urlThingSpeak = "https://api.thingspeak.com/channels/3469733/fields/1/last.json";
+
+        // REGRA: Nível abaixo de 4.0 cm entra em ALERTA (para protótipos/maquetes)
+        const LIMITE_ALERTA = 4.0;
+
+        // Banco de dados dos piezômetros
+        let listaPiezometros = [
+            { id: 'PZ-01', local: 'Montante (Barragem A)', nivel: 0.0, status: 'Alerta', historico: [0, 0, 0, 0, 0, 0] },
+            { id: 'PZ-02', local: 'Jusante (Barragem A)', nivel: 32.0, status: 'Operacional', historico: [10, 21, 8, 13, 24, 32] },
+            { id: 'PZ-03', local: 'Talude Central', nivel: 3.0, status: 'Alerta', historico: [28, 20, 11, 10, 5, 3] },
+            { id: 'PZ-04', local: 'Base Principal', nivel: 5.0, status: 'Operacional', historico: [45, 56, 38, 59, 20, 5] },
+            { id: 'PZ-05', local: 'Setor Norte', nivel: 0.0, status: 'Manutenção', historico: [0, 0, 0, 0, 0, 0] }
+        ];
+
+        let graficoLinhasInstancia = null;
+        let graficoPizzaInstancia = null;
+
+        // Função para obter data/hora atual formatada
+        function obterDataHoraAtual() {
+            return new Date().toLocaleString('pt-BR');
+        }
+
+        // Relógio contínuo no cabeçalho
+        function atualizarRelogio() {
+            const relogioEl = document.getElementById('relogio-topo');
+            if (relogioEl) {
+                const agora = new Date();
+                relogioEl.innerText = agora.toLocaleTimeString('pt-BR');
+            }
+        }
+
+        // Avalia automaticamente o status de qualquer piezômetro com base no nível
+        function calcularStatus(piezometro) {
+            if (piezometro.status === 'Manutenção') return 'Manutenção';
+            return piezometro.nivel < LIMITE_ALERTA ? 'Alerta' : 'Operacional';
+        }
+
+        // Função de Navegação entre Abas
+        function navegar(paginaId, botao) {
+            document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+
+            const secao = document.getElementById(paginaId);
+            if (secao) secao.classList.add('active');
+
+            if (botao) {
+                botao.classList.add('active');
+            } else {
+                // Seleção de botão fallback para chamadas diretas
+                const targetBtnId = paginaId.replace('pagina-', 'btn-nav-');
+                const targetBtn = document.getElementById(targetBtnId);
+                if (targetBtn) targetBtn.classList.add('active');
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        // Adiciona registro de logs no feed da Home
+        function registrarEvento(mensagem) {
+            const feed = document.getElementById('feed-eventos-home');
+            if (!feed) return;
+            const hora = new Date().toLocaleTimeString('pt-BR');
+            const item = document.createElement('li');
+            item.className = "flex items-center justify-between text-slate-300 border-b border-slate-800 pb-1";
+            item.innerHTML = `
+                <span class="flex items-center space-x-2">
+                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                    <span>${mensagem}</span>
+                </span>
+                <span class="text-slate-500 text-[10px]">${hora}</span>
+            `;
+            feed.prepend(item);
+            if (feed.children.length > 5) feed.removeChild(feed.lastChild);
+        }
+
+        // Atualiza toda a interface (Cards, Tabelas, Badges e Gráficos)
+        function atualizarInterfaceCompleta() {
+            const dataHoraAtual = obterDataHoraAtual();
+
+            // 1. Recalcula o status de todos os piezômetros com base no nível
+            listaPiezometros.forEach(pz => {
+                pz.status = calcularStatus(pz);
+            });
+
+            // 2. Atualiza Cards Superiores do Dashboard e Home
+            const total = listaPiezometros.length;
+            const criticos = listaPiezometros.filter(p => p.status === 'Alerta').length;
+            const ativos = listaPiezometros.filter(p => p.status !== 'Manutenção');
+            const soma = ativos.reduce((acc, p) => acc + p.nivel, 0);
+            const media = ativos.length > 0 ? (soma / ativos.length).toFixed(1) : '0.0';
+
+            // Elementos Dashboard
+            const totalEl = document.getElementById('card-total-piezometros');
+            if (totalEl) totalEl.innerText = total;
+
+            const criticosEl = document.getElementById('card-criticos-piezometros');
+            if (criticosEl) criticosEl.innerText = criticos;
+
+            const mediaEl = document.getElementById('card-media-nivel');
+            if (mediaEl) mediaEl.innerText = `${media} cm`;
+
+            // Elementos Home
+            const homeTotalEl = document.getElementById('home-card-total');
+            if (homeTotalEl) homeTotalEl.innerText = total;
+
+            const homeCriticosEl = document.getElementById('home-card-criticos');
+            if (homeCriticosEl) homeCriticosEl.innerText = criticos;
+
+            const homeMediaEl = document.getElementById('home-card-media');
+            if (homeMediaEl) homeMediaEl.innerText = `${media} cm`;
+
+            const homeRiscoEl = document.getElementById('home-card-risco');
+            if (homeRiscoEl) {
+                if (criticos > 2) {
+                    homeRiscoEl.innerText = "Alto / Crítico";
+                    homeRiscoEl.className = "text-2xl font-bold text-red-400 mt-1";
+                } else if (criticos > 0) {
+                    homeRiscoEl.innerText = "Moderado";
+                    homeRiscoEl.className = "text-2xl font-bold text-amber-400 mt-1";
+                } else {
+                    homeRiscoEl.innerText = "Baixo (Normal)";
+                    homeRiscoEl.className = "text-2xl font-bold text-emerald-400 mt-1";
+                }
+            }
+
+            // 3. Renderiza a aba Piezômetros (Cards)
+            const containerPz = document.getElementById('container-piezometros');
+            if (containerPz) {
+                containerPz.innerHTML = '';
+                listaPiezometros.forEach(pz => {
+                    const badgeClass = pz.status === 'Alerta' ? 'badge-danger' : (pz.status === 'Manutenção' ? 'badge-warning' : 'badge-success');
+                    containerPz.innerHTML += `
+                        <div class="glass-card p-5 rounded-2xl border border-slate-800 space-y-3 relative overflow-hidden">
+                            <div class="flex items-center justify-between">
+                                <h3 class="text-lg font-bold text-white">${pz.id}</h3>
+                                <span id="badge-${pz.id}" class="px-2.5 py-1 rounded-full text-xs font-semibold ${badgeClass}">${pz.status}</span>
+                            </div>
+                            <div class="space-y-1 text-xs">
+                                <p class="text-slate-400"><strong class="text-slate-300">Local:</strong> ${pz.local}</p>
+                                <p class="text-slate-400"><strong class="text-slate-300">Nível Atual:</strong> <span id="val-${pz.id}" class="text-sm font-bold ${pz.status === 'Alerta' ? 'text-red-400' : 'text-slate-100'}">${pz.status === 'Manutenção' ? '--' : pz.nivel.toFixed(1) + ' cm'}</span></p>
+                            </div>
+                            <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
+                                <span>Última Leitura:</span>
+                                <span>${dataHoraAtual}</span>
+                            </div>
+                        </div>`;
+                });
+            }
+
+            // 4. Renderiza a Tabela de Relatórios
+            const tabela = document.getElementById('tabela-relatorios');
+            if (tabela) {
+                tabela.innerHTML = '';
+                listaPiezometros.forEach(pz => {
+                    const badgeClass = pz.status === 'Alerta' ? 'badge-danger' : (pz.status === 'Manutenção' ? 'badge-warning' : 'badge-success');
+                    tabela.innerHTML += `
+                        <tr class="hover:bg-slate-900/50 transition-colors">
+                            <td class="p-4 text-slate-400">${dataHoraAtual}</td>
+                            <td class="p-4 font-bold text-white">${pz.id}</td>
+                            <td class="p-4 text-slate-300">${pz.local}</td>
+                            <td class="p-4 font-semibold"><span id="tab-${pz.id}">${pz.status === 'Manutenção' ? '--' : pz.nivel.toFixed(1) + ' cm'}</span></td>
+                            <td class="p-4"><span class="px-2.5 py-1 rounded-full text-xs font-semibold ${badgeClass}">${pz.status}</span></td>
+                        </tr>`;
+                });
+            }
+
+            // 5. Atualiza os gráficos
+            atualizarGraficos();
+        }
+
+        function inicializarGraficos() {
+            if (typeof Chart === 'undefined') return;
+
+            const canvasLinha = document.getElementById('graficoComparativo');
+            if (canvasLinha) {
+                const ctxLinha = canvasLinha.getContext('2d');
+                graficoLinhasInstancia = new Chart(ctxLinha, {
+                    type: 'line',
+                    data: {
+                        labels: ['08:00', '08:30', '09:00', '09:30', '10:00', 'Agora'],
+                        datasets: listaPiezometros.filter(p => p.status !== 'Manutenção').map((p, i) => ({
+                            label: `${p.id} (${p.local})`,
+                            data: p.historico,
+                            borderColor: ['#3b82f6', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6'][i % 5],
+                            backgroundColor: 'transparent',
+                            borderWidth: 2,
+                            tension: 0.3
+                        }))
+                    },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false,
+                        animation: false,
+                        plugins: {
+                            legend: { labels: { color: '#9ca3af', font: { size: 11 } } }
+                        }
+                    }
+                });
+            }
+
+            const canvasPizza = document.getElementById('graficoPizza');
+            if (canvasPizza) {
+                const ctxPizza = canvasPizza.getContext('2d');
+                graficoPizzaInstancia = new Chart(ctxPizza, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['Operacionais', 'Alerta / Crítico', 'Em Manutenção'],
+                        datasets: [{
+                            data: [
+                                listaPiezometros.filter(p => p.status === 'Operacional').length,
+                                listaPiezometros.filter(p => p.status === 'Alerta').length,
+                                listaPiezometros.filter(p => p.status === 'Manutenção').length
+                            ],
+                            backgroundColor: ['#10b981', '#ef4444', '#f59e0b'],
+                            borderWidth: 0
+                        }]
+                    },
+                    options: { 
+                        responsive: true, 
+                        maintainAspectRatio: false,
+                        animation: false,
+                        plugins: {
+                            legend: { position: 'bottom', labels: { color: '#9ca3af', font: { size: 11 } } }
+                        }
+                    }
+                });
+            }
+        }
+
+        function atualizarGraficos() {
+            if (graficoLinhasInstancia) {
+                const ativos = listaPiezometros.filter(p => p.status !== 'Manutenção');
+                ativos.forEach((pz, idx) => {
+                    if (graficoLinhasInstancia.data.datasets[idx]) {
+                        graficoLinhasInstancia.data.datasets[idx].data[5] = pz.nivel;
+                    }
+                });
+                graficoLinhasInstancia.update('none');
+            }
+
+            if (graficoPizzaInstancia) {
+                graficoPizzaInstancia.data.datasets[0].data = [
+                    listaPiezometros.filter(p => p.status === 'Operacional').length,
+                    listaPiezometros.filter(p => p.status === 'Alerta').length,
+                    listaPiezometros.filter(p => p.status === 'Manutenção').length
+                ];
+                graficoPizzaInstancia.update('none');
+            }
+        }
+
+        // Lê os dados diretamente da API do ThingSpeak (em centímetros)
+        async function lerDadosDoSensor() {
+            const statusText = document.getElementById('status-thingspeak-text');
+            try {
+                const resposta = await fetch(urlThingSpeak);
+                const dados = await resposta.json();
+                
+                if (dados && dados.field1 !== undefined && dados.field1 !== null) {
+                    const novoNivel = parseFloat(dados.field1);
+
+                    if (!isNaN(novoNivel)) {
+                        // Pega o valor exatamente como veio do ThingSpeak (em cm)
+                        listaPiezometros[0].nivel = novoNivel;
+                        listaPiezometros[0].historico[5] = novoNivel;
+
+                        if (statusText) statusText.innerText = "ThingSpeak Conectado";
+                        registrarEvento(`ThingSpeak atualizado (PZ-01: ${novoNivel.toFixed(1)} cm)`);
+
+                        // Recalcula o status e atualiza toda a interface
+                        atualizarInterfaceCompleta();
+                    }
+                }
+            } catch (erro) {
+                console.warn("Aguardando próxima atualização do ThingSpeak ou usando simulação local...", erro);
+                if (statusText) statusText.innerText = "ThingSpeak Offline / Polling";
+            }
+        }
+
+        // Inicialização ao carregar a página
+        window.onload = function() {
+            setInterval(atualizarRelogio, 1000);
+            atualizarRelogio();
+
+            inicializarGraficos();
+            atualizarInterfaceCompleta();
+
+            // Consulta imediata e depois a cada 15 segundos
+            lerDadosDoSensor();
+            setInterval(lerDadosDoSensor, 15000);
+
+            // Evento de cadastro manual de novos piezômetros
+            const formCadastrar = document.getElementById('form-cadastrar');
+            if (formCadastrar) {
+                formCadastrar.addEventListener('submit', function(e) {
+                    e.preventDefault();
+
+                    const nome = document.getElementById('input-nome').value.trim();
+                    const local = document.getElementById('input-local').value.trim();
+                    const nivel = parseFloat(document.getElementById('input-nivel').value);
+                    const statusInicial = document.getElementById('input-status').value;
+
+                    if (nome && local && !isNaN(nivel)) {
+                        const novoPz = {
+                            id: nome,
+                            local: local,
+                            nivel: nivel,
+                            status: statusInicial,
+                            historico: [nivel, nivel, nivel, nivel, nivel, nivel]
+                        };
+
+                        listaPiezometros.push(novoPz);
+                        registrarEvento(`Novo piezômetro cadastrado: ${nome}`);
+
+                        // Reinicia gráficos e atualiza interface
+                        if (graficoLinhasInstancia) graficoLinhasInstancia.destroy();
+                        if (graficoPizzaInstancia) graficoPizzaInstancia.destroy();
+                        inicializarGraficos();
+
+                        atualizarInterfaceCompleta();
+                        formCadastrar.reset();
+
+                        // Navega para os piezômetros para ver a adição
+                        navegar('pagina-piezometros', document.getElementById('btn-nav-piezometros'));
+                    }
+                });
+            }
+        };
+    </script>
 </body>
 </html>
