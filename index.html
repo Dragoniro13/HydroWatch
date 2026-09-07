@@ -502,341 +502,383 @@
     </footer>
 
     <!-- JAVASCRIPT LOGIC -->
-    <script>
-        // Configuração do Chart.js para o modo escuro
-        if (typeof Chart !== 'undefined') {
-            Chart.defaults.color = '#9ca3af';
-            Chart.defaults.borderColor = '#1f2937';
+  <script type="module">
+    // 1. Importações do Firebase Realtime Database via CDN
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue, push, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+
+    // 2. Configuração do Firebase
+    const firebaseConfig = {
+        apiKey: "AIzaSyDPYSmxc9P3uMtE2GCKg7hDjXPOuYHAmN0",
+        authDomain: "hydrowatch-3f22c.firebaseapp.com",
+        databaseURL: "https://hydrowatch-3f22c-default-rtdb.firebaseio.com",
+        projectId: "hydrowatch-3f22c",
+        storageBucket: "hydrowatch-3f22c.firebasestorage.app",
+        messagingSenderId: "736663431315",
+        appId: "1:736663431315:web:7af0ff36394dd53bdcc566",
+        measurementId: "G-TNXY77YYZM"
+    };
+
+    // Inicialização do Firebase
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const piezometrosRef = ref(db, 'piezometros');
+
+    // Configuração do Chart.js para o modo escuro
+    if (typeof Chart !== 'undefined') {
+        Chart.defaults.color = '#9ca3af';
+        Chart.defaults.borderColor = '#1f2937';
+    }
+
+    // Configuração da API do ThingSpeak
+    const channelID = "3469733";
+    const urlThingSpeak = "https://api.thingspeak.com/channels/3469733/fields/1/last.json";
+
+    // REGRA: Nível abaixo de 4.0 cm entra em ALERTA (para protótipos/maquetes)
+    const LIMITE_ALERTA = 4.0;
+
+    // Dados iniciais padrão (carregados no Firebase apenas se o banco estiver 100% vazio)
+    const dadosIniciaisPadrao = [
+        { id: 'PZ-01', local: 'Montante (Barragem A)', nivel: 0.0, status: 'Alerta', historico: [0, 0, 0, 0, 0, 0] },
+        { id: 'PZ-02', local: 'Jusante (Barragem A)', nivel: 32.0, status: 'Operacional', historico: [10, 21, 8, 13, 24, 32] },
+        { id: 'PZ-03', local: 'Talude Central', nivel: 3.0, status: 'Alerta', historico: [28, 20, 11, 10, 5, 3] },
+        { id: 'PZ-04', local: 'Base Principal', nivel: 5.0, status: 'Operacional', historico: [45, 56, 38, 59, 20, 5] },
+        { id: 'PZ-05', local: 'Setor Norte', nivel: 0.0, status: 'Manutenção', historico: [0, 0, 0, 0, 0, 0] }
+    ];
+
+    let listaPiezometros = [];
+    let chavesFirebase = [];
+    let graficoLinhasInstancia = null;
+    let graficoPizzaInstancia = null;
+
+    // Função para obter data/hora atual formatada
+    function obterDataHoraAtual() {
+        return new Date().toLocaleString('pt-BR');
+    }
+
+    // Relógio contínuo no cabeçalho
+    function atualizarRelogio() {
+        const relogioEl = document.getElementById('relogio-topo');
+        if (relogioEl) {
+            const agora = new Date();
+            relogioEl.innerText = agora.toLocaleTimeString('pt-BR');
+        }
+    }
+
+    // Avalia automaticamente o status de qualquer piezômetro com base no nível
+    function calcularStatus(piezometro) {
+        if (piezometro.status === 'Manutenção') return 'Manutenção';
+        return piezometro.nivel < LIMITE_ALERTA ? 'Alerta' : 'Operacional';
+    }
+
+    // Função de Navegação entre Abas (Exposta no window para funcionar via onclick no HTML)
+    window.navegar = function(paginaId, botao) {
+        document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+
+        const secao = document.getElementById(paginaId);
+        if (secao) secao.classList.add('active');
+
+        if (botao) {
+            botao.classList.add('active');
+        } else {
+            const targetBtnId = paginaId.replace('pagina-', 'btn-nav-');
+            const targetBtn = document.getElementById(targetBtnId);
+            if (targetBtn) targetBtn.classList.add('active');
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // Adiciona registro de logs no feed da Home
+    function registrarEvento(mensagem) {
+        const feed = document.getElementById('feed-eventos-home');
+        if (!feed) return;
+        const hora = new Date().toLocaleTimeString('pt-BR');
+        const item = document.createElement('li');
+        item.className = "flex items-center justify-between text-slate-300 border-b border-slate-800 pb-1";
+        item.innerHTML = `
+            <span class="flex items-center space-x-2">
+                <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
+                <span>${mensagem}</span>
+            </span>
+            <span class="text-slate-500 text-[10px]">${hora}</span>
+        `;
+        feed.prepend(item);
+        if (feed.children.length > 5) feed.removeChild(feed.lastChild);
+    }
+
+    // Escutador em Tempo Real do Firebase: Sincroniza todos os usuários simultaneamente
+    onValue(piezometrosRef, (snapshot) => {
+        const data = snapshot.val();
+        
+        if (!data) {
+            dadosIniciaisPadrao.forEach(pz => push(piezometrosRef, pz));
+            return;
         }
 
-        // Configuração da API do ThingSpeak
-        const channelID = "3469733";
-        const urlThingSpeak = "https://api.thingspeak.com/channels/3469733/fields/1/last.json";
+        listaPiezometros = [];
+        chavesFirebase = [];
 
-        // REGRA: Nível abaixo de 4.0 cm entra em ALERTA (para protótipos/maquetes)
-        const LIMITE_ALERTA = 4.0;
+        Object.keys(data).forEach(key => {
+            chavesFirebase.push(key);
+            listaPiezometros.push(data[key]);
+        });
 
-        // Banco de dados dos piezômetros
-        let listaPiezometros = [
-            { id: 'PZ-01', local: 'Montante (Barragem A)', nivel: 0.0, status: 'Alerta', historico: [0, 0, 0, 0, 0, 0] },
-            { id: 'PZ-02', local: 'Jusante (Barragem A)', nivel: 32.0, status: 'Operacional', historico: [10, 21, 8, 13, 24, 32] },
-            { id: 'PZ-03', local: 'Talude Central', nivel: 3.0, status: 'Alerta', historico: [28, 20, 11, 10, 5, 3] },
-            { id: 'PZ-04', local: 'Base Principal', nivel: 5.0, status: 'Operacional', historico: [45, 56, 38, 59, 20, 5] },
-            { id: 'PZ-05', local: 'Setor Norte', nivel: 0.0, status: 'Manutenção', historico: [0, 0, 0, 0, 0, 0] }
-        ];
+        if (graficoLinhasInstancia) graficoLinhasInstancia.destroy();
+        if (graficoPizzaInstancia) graficoPizzaInstancia.destroy();
+        inicializarGraficos();
+        atualizarInterfaceCompleta();
+    });
 
-        let graficoLinhasInstancia = null;
-        let graficoPizzaInstancia = null;
+    // Atualiza toda a interface (Cards, Tabelas, Badges e Gráficos)
+    function atualizarInterfaceCompleta() {
+        const dataHoraAtual = obterDataHoraAtual();
 
-        // Função para obter data/hora atual formatada
-        function obterDataHoraAtual() {
-            return new Date().toLocaleString('pt-BR');
-        }
+        // 1. Recalcula o status de todos os piezômetros com base no nível
+        listaPiezometros.forEach(pz => {
+            pz.status = calcularStatus(pz);
+        });
 
-        // Relógio contínuo no cabeçalho
-        function atualizarRelogio() {
-            const relogioEl = document.getElementById('relogio-topo');
-            if (relogioEl) {
-                const agora = new Date();
-                relogioEl.innerText = agora.toLocaleTimeString('pt-BR');
-            }
-        }
+        // 2. Atualiza Cards Superiores do Dashboard e Home
+        const total = listaPiezometros.length;
+        const criticos = listaPiezometros.filter(p => p.status === 'Alerta').length;
+        const ativos = listaPiezometros.filter(p => p.status !== 'Manutenção');
+        const soma = ativos.reduce((acc, p) => acc + p.nivel, 0);
+        const media = ativos.length > 0 ? (soma / ativos.length).toFixed(1) : '0.0';
 
-        // Avalia automaticamente o status de qualquer piezômetro com base no nível
-        function calcularStatus(piezometro) {
-            if (piezometro.status === 'Manutenção') return 'Manutenção';
-            return piezometro.nivel < LIMITE_ALERTA ? 'Alerta' : 'Operacional';
-        }
+        // Elementos Dashboard
+        const totalEl = document.getElementById('card-total-piezometros');
+        if (totalEl) totalEl.innerText = total;
 
-        // Função de Navegação entre Abas
-        function navegar(paginaId, botao) {
-            document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
-            document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        const criticosEl = document.getElementById('card-criticos-piezometros');
+        if (criticosEl) criticosEl.innerText = criticos;
 
-            const secao = document.getElementById(paginaId);
-            if (secao) secao.classList.add('active');
+        const mediaEl = document.getElementById('card-media-nivel');
+        if (mediaEl) mediaEl.innerText = `${media} cm`;
 
-            if (botao) {
-                botao.classList.add('active');
+        // Elementos Home
+        const homeTotalEl = document.getElementById('home-card-total');
+        if (homeTotalEl) homeTotalEl.innerText = total;
+
+        const homeCriticosEl = document.getElementById('home-card-criticos');
+        if (homeCriticosEl) homeCriticosEl.innerText = criticos;
+
+        const homeMediaEl = document.getElementById('home-card-media');
+        if (homeMediaEl) homeMediaEl.innerText = `${media} cm`;
+
+        const homeRiscoEl = document.getElementById('home-card-risco');
+        if (homeRiscoEl) {
+            if (criticos > 2) {
+                homeRiscoEl.innerText = "Alto / Crítico";
+                homeRiscoEl.className = "text-2xl font-bold text-red-400 mt-1";
+            } else if (criticos > 0) {
+                homeRiscoEl.innerText = "Moderado";
+                homeRiscoEl.className = "text-2xl font-bold text-amber-400 mt-1";
             } else {
-                // Seleção de botão fallback para chamadas diretas
-                const targetBtnId = paginaId.replace('pagina-', 'btn-nav-');
-                const targetBtn = document.getElementById(targetBtnId);
-                if (targetBtn) targetBtn.classList.add('active');
+                homeRiscoEl.innerText = "Baixo (Normal)";
+                homeRiscoEl.className = "text-2xl font-bold text-emerald-400 mt-1";
             }
-            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        // Adiciona registro de logs no feed da Home
-        function registrarEvento(mensagem) {
-            const feed = document.getElementById('feed-eventos-home');
-            if (!feed) return;
-            const hora = new Date().toLocaleTimeString('pt-BR');
-            const item = document.createElement('li');
-            item.className = "flex items-center justify-between text-slate-300 border-b border-slate-800 pb-1";
-            item.innerHTML = `
-                <span class="flex items-center space-x-2">
-                    <span class="w-1.5 h-1.5 rounded-full bg-blue-400"></span>
-                    <span>${mensagem}</span>
-                </span>
-                <span class="text-slate-500 text-[10px]">${hora}</span>
-            `;
-            feed.prepend(item);
-            if (feed.children.length > 5) feed.removeChild(feed.lastChild);
-        }
-
-        // Atualiza toda a interface (Cards, Tabelas, Badges e Gráficos)
-        function atualizarInterfaceCompleta() {
-            const dataHoraAtual = obterDataHoraAtual();
-
-            // 1. Recalcula o status de todos os piezômetros com base no nível
+        // 3. Renderiza a aba Piezômetros (Cards)
+        const containerPz = document.getElementById('container-piezometros');
+        if (containerPz) {
+            containerPz.innerHTML = '';
             listaPiezometros.forEach(pz => {
-                pz.status = calcularStatus(pz);
+                const badgeClass = pz.status === 'Alerta' ? 'badge-danger' : (pz.status === 'Manutenção' ? 'badge-warning' : 'badge-success');
+                containerPz.innerHTML += `
+                    <div class="glass-card p-5 rounded-2xl border border-slate-800 space-y-3 relative overflow-hidden">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-lg font-bold text-white">${pz.id}</h3>
+                            <span id="badge-${pz.id}" class="px-2.5 py-1 rounded-full text-xs font-semibold ${badgeClass}">${pz.status}</span>
+                        </div>
+                        <div class="space-y-1 text-xs">
+                            <p class="text-slate-400"><strong class="text-slate-300">Local:</strong> ${pz.local}</p>
+                            <p class="text-slate-400"><strong class="text-slate-300">Nível Atual:</strong> <span id="val-${pz.id}" class="text-sm font-bold ${pz.status === 'Alerta' ? 'text-red-400' : 'text-slate-100'}">${pz.status === 'Manutenção' ? '--' : pz.nivel.toFixed(1) + ' cm'}</span></p>
+                        </div>
+                        <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
+                            <span>Última Leitura:</span>
+                            <span>${dataHoraAtual}</span>
+                        </div>
+                    </div>`;
             });
+        }
 
-            // 2. Atualiza Cards Superiores do Dashboard e Home
-            const total = listaPiezometros.length;
-            const criticos = listaPiezometros.filter(p => p.status === 'Alerta').length;
+        // 4. Renderiza a Tabela de Relatórios
+        const tabela = document.getElementById('tabela-relatorios');
+        if (tabela) {
+            tabela.innerHTML = '';
+            listaPiezometros.forEach(pz => {
+                const badgeClass = pz.status === 'Alerta' ? 'badge-danger' : (pz.status === 'Manutenção' ? 'badge-warning' : 'badge-success');
+                tabela.innerHTML += `
+                    <tr class="hover:bg-slate-900/50 transition-colors">
+                        <td class="p-4 text-slate-400">${dataHoraAtual}</td>
+                        <td class="p-4 font-bold text-white">${pz.id}</td>
+                        <td class="p-4 text-slate-300">${pz.local}</td>
+                        <td class="p-4 font-semibold"><span id="tab-${pz.id}">${pz.status === 'Manutenção' ? '--' : pz.nivel.toFixed(1) + ' cm'}</span></td>
+                        <td class="p-4"><span class="px-2.5 py-1 rounded-full text-xs font-semibold ${badgeClass}">${pz.status}</span></td>
+                    </tr>`;
+            });
+        }
+
+        // 5. Atualiza os gráficos
+        atualizarGraficos();
+    }
+
+    function inicializarGraficos() {
+        if (typeof Chart === 'undefined' || listaPiezometros.length === 0) return;
+
+        const canvasLinha = document.getElementById('graficoComparativo');
+        if (canvasLinha) {
+            const ctxLinha = canvasLinha.getContext('2d');
+            graficoLinhasInstancia = new Chart(ctxLinha, {
+                type: 'line',
+                data: {
+                    labels: ['08:00', '08:30', '09:00', '09:30', '10:00', 'Agora'],
+                    datasets: listaPiezometros.filter(p => p.status !== 'Manutenção').map((p, i) => ({
+                        label: `${p.id} (${p.local})`,
+                        data: p.historico || [0, 0, 0, 0, 0, 0],
+                        borderColor: ['#3b82f6', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6'][i % 5],
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        tension: 0.3
+                    }))
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: { labels: { color: '#9ca3af', font: { size: 11 } } }
+                    }
+                }
+            });
+        }
+
+        const canvasPizza = document.getElementById('graficoPizza');
+        if (canvasPizza) {
+            const ctxPizza = canvasPizza.getContext('2d');
+            graficoPizzaInstancia = new Chart(ctxPizza, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Operacionais', 'Alerta / Crítico', 'Em Manutenção'],
+                    datasets: [{
+                        data: [
+                            listaPiezometros.filter(p => p.status === 'Operacional').length,
+                            listaPiezometros.filter(p => p.status === 'Alerta').length,
+                            listaPiezometros.filter(p => p.status === 'Manutenção').length
+                        ],
+                        backgroundColor: ['#10b981', '#ef4444', '#f59e0b'],
+                        borderWidth: 0
+                    }]
+                },
+                options: { 
+                    responsive: true, 
+                    maintainAspectRatio: false,
+                    animation: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { color: '#9ca3af', font: { size: 11 } } }
+                    }
+                }
+            });
+        }
+    }
+
+    function atualizarGraficos() {
+        if (graficoLinhasInstancia) {
             const ativos = listaPiezometros.filter(p => p.status !== 'Manutenção');
-            const soma = ativos.reduce((acc, p) => acc + p.nivel, 0);
-            const media = ativos.length > 0 ? (soma / ativos.length).toFixed(1) : '0.0';
-
-            // Elementos Dashboard
-            const totalEl = document.getElementById('card-total-piezometros');
-            if (totalEl) totalEl.innerText = total;
-
-            const criticosEl = document.getElementById('card-criticos-piezometros');
-            if (criticosEl) criticosEl.innerText = criticos;
-
-            const mediaEl = document.getElementById('card-media-nivel');
-            if (mediaEl) mediaEl.innerText = `${media} cm`;
-
-            // Elementos Home
-            const homeTotalEl = document.getElementById('home-card-total');
-            if (homeTotalEl) homeTotalEl.innerText = total;
-
-            const homeCriticosEl = document.getElementById('home-card-criticos');
-            if (homeCriticosEl) homeCriticosEl.innerText = criticos;
-
-            const homeMediaEl = document.getElementById('home-card-media');
-            if (homeMediaEl) homeMediaEl.innerText = `${media} cm`;
-
-            const homeRiscoEl = document.getElementById('home-card-risco');
-            if (homeRiscoEl) {
-                if (criticos > 2) {
-                    homeRiscoEl.innerText = "Alto / Crítico";
-                    homeRiscoEl.className = "text-2xl font-bold text-red-400 mt-1";
-                } else if (criticos > 0) {
-                    homeRiscoEl.innerText = "Moderado";
-                    homeRiscoEl.className = "text-2xl font-bold text-amber-400 mt-1";
-                } else {
-                    homeRiscoEl.innerText = "Baixo (Normal)";
-                    homeRiscoEl.className = "text-2xl font-bold text-emerald-400 mt-1";
+            ativos.forEach((pz, idx) => {
+                if (graficoLinhasInstancia.data.datasets[idx]) {
+                    graficoLinhasInstancia.data.datasets[idx].data[5] = pz.nivel;
                 }
-            }
-
-            // 3. Renderiza a aba Piezômetros (Cards)
-            const containerPz = document.getElementById('container-piezometros');
-            if (containerPz) {
-                containerPz.innerHTML = '';
-                listaPiezometros.forEach(pz => {
-                    const badgeClass = pz.status === 'Alerta' ? 'badge-danger' : (pz.status === 'Manutenção' ? 'badge-warning' : 'badge-success');
-                    containerPz.innerHTML += `
-                        <div class="glass-card p-5 rounded-2xl border border-slate-800 space-y-3 relative overflow-hidden">
-                            <div class="flex items-center justify-between">
-                                <h3 class="text-lg font-bold text-white">${pz.id}</h3>
-                                <span id="badge-${pz.id}" class="px-2.5 py-1 rounded-full text-xs font-semibold ${badgeClass}">${pz.status}</span>
-                            </div>
-                            <div class="space-y-1 text-xs">
-                                <p class="text-slate-400"><strong class="text-slate-300">Local:</strong> ${pz.local}</p>
-                                <p class="text-slate-400"><strong class="text-slate-300">Nível Atual:</strong> <span id="val-${pz.id}" class="text-sm font-bold ${pz.status === 'Alerta' ? 'text-red-400' : 'text-slate-100'}">${pz.status === 'Manutenção' ? '--' : pz.nivel.toFixed(1) + ' cm'}</span></p>
-                            </div>
-                            <div class="pt-2 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-500">
-                                <span>Última Leitura:</span>
-                                <span>${dataHoraAtual}</span>
-                            </div>
-                        </div>`;
-                });
-            }
-
-            // 4. Renderiza a Tabela de Relatórios
-            const tabela = document.getElementById('tabela-relatorios');
-            if (tabela) {
-                tabela.innerHTML = '';
-                listaPiezometros.forEach(pz => {
-                    const badgeClass = pz.status === 'Alerta' ? 'badge-danger' : (pz.status === 'Manutenção' ? 'badge-warning' : 'badge-success');
-                    tabela.innerHTML += `
-                        <tr class="hover:bg-slate-900/50 transition-colors">
-                            <td class="p-4 text-slate-400">${dataHoraAtual}</td>
-                            <td class="p-4 font-bold text-white">${pz.id}</td>
-                            <td class="p-4 text-slate-300">${pz.local}</td>
-                            <td class="p-4 font-semibold"><span id="tab-${pz.id}">${pz.status === 'Manutenção' ? '--' : pz.nivel.toFixed(1) + ' cm'}</span></td>
-                            <td class="p-4"><span class="px-2.5 py-1 rounded-full text-xs font-semibold ${badgeClass}">${pz.status}</span></td>
-                        </tr>`;
-                });
-            }
-
-            // 5. Atualiza os gráficos
-            atualizarGraficos();
+            });
+            graficoLinhasInstancia.update('none');
         }
 
-        function inicializarGraficos() {
-            if (typeof Chart === 'undefined') return;
-
-            const canvasLinha = document.getElementById('graficoComparativo');
-            if (canvasLinha) {
-                const ctxLinha = canvasLinha.getContext('2d');
-                graficoLinhasInstancia = new Chart(ctxLinha, {
-                    type: 'line',
-                    data: {
-                        labels: ['08:00', '08:30', '09:00', '09:30', '10:00', 'Agora'],
-                        datasets: listaPiezometros.filter(p => p.status !== 'Manutenção').map((p, i) => ({
-                            label: `${p.id} (${p.local})`,
-                            data: p.historico,
-                            borderColor: ['#3b82f6', '#10b981', '#ef4444', '#f59e0b', '#8b5cf6'][i % 5],
-                            backgroundColor: 'transparent',
-                            borderWidth: 2,
-                            tension: 0.3
-                        }))
-                    },
-                    options: { 
-                        responsive: true, 
-                        maintainAspectRatio: false,
-                        animation: false,
-                        plugins: {
-                            legend: { labels: { color: '#9ca3af', font: { size: 11 } } }
-                        }
-                    }
-                });
-            }
-
-            const canvasPizza = document.getElementById('graficoPizza');
-            if (canvasPizza) {
-                const ctxPizza = canvasPizza.getContext('2d');
-                graficoPizzaInstancia = new Chart(ctxPizza, {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Operacionais', 'Alerta / Crítico', 'Em Manutenção'],
-                        datasets: [{
-                            data: [
-                                listaPiezometros.filter(p => p.status === 'Operacional').length,
-                                listaPiezometros.filter(p => p.status === 'Alerta').length,
-                                listaPiezometros.filter(p => p.status === 'Manutenção').length
-                            ],
-                            backgroundColor: ['#10b981', '#ef4444', '#f59e0b'],
-                            borderWidth: 0
-                        }]
-                    },
-                    options: { 
-                        responsive: true, 
-                        maintainAspectRatio: false,
-                        animation: false,
-                        plugins: {
-                            legend: { position: 'bottom', labels: { color: '#9ca3af', font: { size: 11 } } }
-                        }
-                    }
-                });
-            }
+        if (graficoPizzaInstancia) {
+            graficoPizzaInstancia.data.datasets[0].data = [
+                listaPiezometros.filter(p => p.status === 'Operacional').length,
+                listaPiezometros.filter(p => p.status === 'Alerta').length,
+                listaPiezometros.filter(p => p.status === 'Manutenção').length
+            ];
+            graficoPizzaInstancia.update('none');
         }
+    }
 
-        function atualizarGraficos() {
-            if (graficoLinhasInstancia) {
-                const ativos = listaPiezometros.filter(p => p.status !== 'Manutenção');
-                ativos.forEach((pz, idx) => {
-                    if (graficoLinhasInstancia.data.datasets[idx]) {
-                        graficoLinhasInstancia.data.datasets[idx].data[5] = pz.nivel;
-                    }
-                });
-                graficoLinhasInstancia.update('none');
-            }
+    // Lê os dados do ThingSpeak e sincroniza com o Firebase
+    async function lerDadosDoSensor() {
+        const statusText = document.getElementById('status-thingspeak-text');
+        try {
+            const resposta = await fetch(urlThingSpeak);
+            const dados = await resposta.json();
+            
+            if (dados && dados.field1 !== undefined && dados.field1 !== null) {
+                const novoNivel = parseFloat(dados.field1);
 
-            if (graficoPizzaInstancia) {
-                graficoPizzaInstancia.data.datasets[0].data = [
-                    listaPiezometros.filter(p => p.status === 'Operacional').length,
-                    listaPiezometros.filter(p => p.status === 'Alerta').length,
-                    listaPiezometros.filter(p => p.status === 'Manutenção').length
-                ];
-                graficoPizzaInstancia.update('none');
-            }
-        }
+                if (!isNaN(novoNivel) && chavesFirebase.length > 0) {
+                    const primeiraChave = chavesFirebase[0];
+                    const pz01 = listaPiezometros[0];
 
-        // Lê os dados diretamente da API do ThingSpeak (em centímetros)
-        async function lerDadosDoSensor() {
-            const statusText = document.getElementById('status-thingspeak-text');
-            try {
-                const resposta = await fetch(urlThingSpeak);
-                const dados = await resposta.json();
-                
-                if (dados && dados.field1 !== undefined && dados.field1 !== null) {
-                    const novoNivel = parseFloat(dados.field1);
+                    if (pz01 && pz01.nivel !== novoNivel) {
+                        const novoHistorico = [...(pz01.historico || [0,0,0,0,0,0])];
+                        novoHistorico[5] = novoNivel;
 
-                    if (!isNaN(novoNivel)) {
-                        // Pega o valor exatamente como veio do ThingSpeak (em cm)
-                        listaPiezometros[0].nivel = novoNivel;
-                        listaPiezometros[0].historico[5] = novoNivel;
+                        // Atualiza no Firebase
+                        update(ref(db, `piezometros/${primeiraChave}`), {
+                            nivel: novoNivel,
+                            historico: novoHistorico
+                        });
 
-                        if (statusText) statusText.innerText = "ThingSpeak Conectado";
                         registrarEvento(`ThingSpeak atualizado (PZ-01: ${novoNivel.toFixed(1)} cm)`);
-
-                        // Recalcula o status e atualiza toda a interface
-                        atualizarInterfaceCompleta();
                     }
+
+                    if (statusText) statusText.innerText = "ThingSpeak Conectado";
                 }
-            } catch (erro) {
-                console.warn("Aguardando próxima atualização do ThingSpeak ou usando simulação local...", erro);
-                if (statusText) statusText.innerText = "ThingSpeak Offline / Polling";
             }
+        } catch (erro) {
+            console.warn("Aguardando próxima atualização do ThingSpeak...", erro);
+            if (statusText) statusText.innerText = "ThingSpeak Offline / Polling";
         }
+    }
 
-        // Inicialização ao carregar a página
-        window.onload = function() {
-            setInterval(atualizarRelogio, 1000);
-            atualizarRelogio();
+    // Inicialização ao carregar a página
+    window.addEventListener('DOMContentLoaded', () => {
+        setInterval(atualizarRelogio, 1000);
+        atualizarRelogio();
 
-            inicializarGraficos();
-            atualizarInterfaceCompleta();
+        // Consulta imediata e depois a cada 15 segundos
+        lerDadosDoSensor();
+        setInterval(lerDadosDoSensor, 15000);
 
-            // Consulta imediata e depois a cada 15 segundos
-            lerDadosDoSensor();
-            setInterval(lerDadosDoSensor, 15000);
+        // Cadastro manual de novos piezômetros conectado ao Firebase
+        const formCadastrar = document.getElementById('form-cadastrar');
+        if (formCadastrar) {
+            formCadastrar.addEventListener('submit', function(e) {
+                e.preventDefault();
 
-            // Evento de cadastro manual de novos piezômetros
-            const formCadastrar = document.getElementById('form-cadastrar');
-            if (formCadastrar) {
-                formCadastrar.addEventListener('submit', function(e) {
-                    e.preventDefault();
+                const nome = document.getElementById('input-nome').value.trim();
+                const local = document.getElementById('input-local').value.trim();
+                const nivel = parseFloat(document.getElementById('input-nivel').value);
+                const statusInicial = document.getElementById('input-status').value;
 
-                    const nome = document.getElementById('input-nome').value.trim();
-                    const local = document.getElementById('input-local').value.trim();
-                    const nivel = parseFloat(document.getElementById('input-nivel').value);
-                    const statusInicial = document.getElementById('input-status').value;
+                if (nome && local && !isNaN(nivel)) {
+                    const novoPz = {
+                        id: nome,
+                        local: local,
+                        nivel: nivel,
+                        status: statusInicial,
+                        historico: [nivel, nivel, nivel, nivel, nivel, nivel]
+                    };
 
-                    if (nome && local && !isNaN(nivel)) {
-                        const novoPz = {
-                            id: nome,
-                            local: local,
-                            nivel: nivel,
-                            status: statusInicial,
-                            historico: [nivel, nivel, nivel, nivel, nivel, nivel]
-                        };
+                    push(piezometrosRef, novoPz);
+                    registrarEvento(`Novo piezômetro cadastrado: ${nome}`);
 
-                        listaPiezometros.push(novoPz);
-                        registrarEvento(`Novo piezômetro cadastrado: ${nome}`);
-
-                        // Reinicia gráficos e atualiza interface
-                        if (graficoLinhasInstancia) graficoLinhasInstancia.destroy();
-                        if (graficoPizzaInstancia) graficoPizzaInstancia.destroy();
-                        inicializarGraficos();
-
-                        atualizarInterfaceCompleta();
-                        formCadastrar.reset();
-
-                        // Navega para os piezômetros para ver a adição
-                        navegar('pagina-piezometros', document.getElementById('btn-nav-piezometros'));
-                    }
-                });
-            }
-        };
-    </script>
+                    formCadastrar.reset();
+                    window.navegar('pagina-piezometros', document.getElementById('btn-nav-piezometros'));
+                }
+            });
+        }
+    });
+</script>
 </body>
 </html>
