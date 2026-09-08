@@ -502,10 +502,10 @@
     </footer>
 
     <!-- JAVASCRIPT LOGIC -->
-  <script type="module">
-    // 1. Importações do Firebase Realtime Database via CDN
+ <script type="module">
+    // 1. Importações do Firebase Realtime Database via CDN (incluído 'remove')
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { getDatabase, ref, onValue, push, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getDatabase, ref, onValue, push, update, remove } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
 
     // 2. Configuração do Firebase
     const firebaseConfig = {
@@ -571,7 +571,7 @@
         return piezometro.nivel < LIMITE_ALERTA ? 'Alerta' : 'Operacional';
     }
 
-    // Função de Navegação entre Abas (Exposta no window para funcionar via onclick no HTML)
+    // Função de Navegação entre Abas
     window.navegar = function(paginaId, botao) {
         document.querySelectorAll('.page-section').forEach(s => s.classList.remove('active'));
         document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
@@ -587,6 +587,20 @@
             if (targetBtn) targetBtn.classList.add('active');
         }
         window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // Função para remover um piezômetro do Firebase
+    window.removerPiezometro = function(chave, nomePz) {
+        if (confirm(`Tem certeza que deseja remover o piezômetro "${nomePz}"?`)) {
+            remove(ref(db, `piezometros/${chave}`))
+                .then(() => {
+                    registrarEvento(`Piezômetro ${nomePz} foi removido.`);
+                })
+                .catch((erro) => {
+                    console.error("Erro ao remover:", erro);
+                    alert("Erro ao remover o piezômetro.");
+                });
+        }
     };
 
     // Adiciona registro de logs no feed da Home
@@ -680,17 +694,23 @@
             }
         }
 
-        // 3. Renderiza a aba Piezômetros (Cards)
+        // 3. Renderiza a aba Piezômetros (Cards com Botão de Excluir)
         const containerPz = document.getElementById('container-piezometros');
         if (containerPz) {
             containerPz.innerHTML = '';
-            listaPiezometros.forEach(pz => {
+            listaPiezometros.forEach((pz, idx) => {
+                const chave = chavesFirebase[idx];
                 const badgeClass = pz.status === 'Alerta' ? 'badge-danger' : (pz.status === 'Manutenção' ? 'badge-warning' : 'badge-success');
                 containerPz.innerHTML += `
                     <div class="glass-card p-5 rounded-2xl border border-slate-800 space-y-3 relative overflow-hidden">
                         <div class="flex items-center justify-between">
                             <h3 class="text-lg font-bold text-white">${pz.id}</h3>
-                            <span id="badge-${pz.id}" class="px-2.5 py-1 rounded-full text-xs font-semibold ${badgeClass}">${pz.status}</span>
+                            <div class="flex items-center space-x-2">
+                                <span id="badge-${pz.id}" class="px-2.5 py-1 rounded-full text-xs font-semibold ${badgeClass}">${pz.status}</span>
+                                <button onclick="removerPiezometro('${chave}', '${pz.id}')" title="Excluir Piezômetro" class="p-1 rounded text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors">
+                                    🗑️
+                                </button>
+                            </div>
                         </div>
                         <div class="space-y-1 text-xs">
                             <p class="text-slate-400"><strong class="text-slate-300">Local:</strong> ${pz.local}</p>
@@ -704,11 +724,12 @@
             });
         }
 
-        // 4. Renderiza a Tabela de Relatórios
+        // 4. Renderiza a Tabela de Relatórios (Com Botão de Excluir)
         const tabela = document.getElementById('tabela-relatorios');
         if (tabela) {
             tabela.innerHTML = '';
-            listaPiezometros.forEach(pz => {
+            listaPiezometros.forEach((pz, idx) => {
+                const chave = chavesFirebase[idx];
                 const badgeClass = pz.status === 'Alerta' ? 'badge-danger' : (pz.status === 'Manutenção' ? 'badge-warning' : 'badge-success');
                 tabela.innerHTML += `
                     <tr class="hover:bg-slate-900/50 transition-colors">
@@ -717,6 +738,11 @@
                         <td class="p-4 text-slate-300">${pz.local}</td>
                         <td class="p-4 font-semibold"><span id="tab-${pz.id}">${pz.status === 'Manutenção' ? '--' : pz.nivel.toFixed(1) + ' cm'}</span></td>
                         <td class="p-4"><span class="px-2.5 py-1 rounded-full text-xs font-semibold ${badgeClass}">${pz.status}</span></td>
+                        <td class="p-4 text-center">
+                            <button onclick="removerPiezometro('${chave}', '${pz.id}')" title="Excluir Piezômetro" class="text-red-400 hover:text-red-300 p-1">
+                                🗑️
+                            </button>
+                        </td>
                     </tr>`;
             });
         }
