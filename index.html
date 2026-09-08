@@ -764,7 +764,7 @@
             }
         }
 
-        // Renderiza os Cards (Controlando a visibilidade da Lixeira)
+        // Renderiza os Cards
         const containerPz = document.getElementById('container-piezometros');
         if (containerPz) {
             containerPz.innerHTML = '';
@@ -772,7 +772,6 @@
                 const chave = chavesFirebase[idx];
                 const badgeClass = pz.status === 'Alerta' ? 'badge-danger' : (pz.status === 'Manutenção' ? 'badge-warning' : 'badge-success');
                 
-                // Valida se o usuário tem permissão para ver a lixeira
                 const podeExcluir = funcaoUsuario === 'admin' || (usuarioLogado && pz.criadoPor === usuarioLogado.uid);
 
                 const botaoExcluir = podeExcluir ? `
@@ -842,7 +841,7 @@
             graficoLinhasInstancia = new Chart(ctxLinha, {
                 type: 'line',
                 data: {
-                    labels: ['08:00', '08:30', '09:00', '09:30', '10:00', 'Agora'],
+                    labels: ['T-5', 'T-4', 'T-3', 'T-2', 'T-1', 'Agora'],
                     datasets: listaPiezometros.filter(p => p.status !== 'Manutenção').map((p, i) => ({
                         label: `${p.id} (${p.local})`,
                         data: p.historico || [0, 0, 0, 0, 0, 0],
@@ -893,7 +892,7 @@
             const ativos = listaPiezometros.filter(p => p.status !== 'Manutenção');
             ativos.forEach((pz, idx) => {
                 if (graficoLinhasInstancia.data.datasets[idx]) {
-                    graficoLinhasInstancia.data.datasets[idx].data[5] = pz.nivel;
+                    graficoLinhasInstancia.data.datasets[idx].data = pz.historico || [0, 0, 0, 0, 0, 0];
                 }
             });
             graficoLinhasInstancia.update('none');
@@ -909,42 +908,52 @@
         }
     }
 
+    // --- LEITURA CORRIGIDA DO THINGSPEAK E ATUALIZAÇÃO NO FIREBASE ---
     async function lerDadosDoSensor() {
         const statusText = document.getElementById('status-thingspeak-text');
         try {
             const resposta = await fetch(urlThingSpeak);
+            if (!resposta.ok) throw new Error(`Erro HTTP: ${resposta.status}`);
+
             const dados = await resposta.json();
             
             if (dados && dados.field1 !== undefined && dados.field1 !== null) {
                 const novoNivel = parseFloat(dados.field1);
 
                 if (!isNaN(novoNivel) && chavesFirebase.length > 0) {
-                    const primeiraChave = chavesFirebase[0];
-                    const pz01 = listaPiezometros[0];
+                    const idxPz01 = listaPiezometros.findIndex(p => p.id === 'PZ-01');
+                    const indexAlvo = idxPz01 !== -1 ? idxPz01 : 0;
+                    
+                    const chaveAlvo = chavesFirebase[indexAlvo];
+                    const pzAlvo = listaPiezometros[indexAlvo];
 
-                    if (pz01 && pz01.nivel !== novoNivel) {
-                        const novoHistorico = [...(pz01.historico || [0,0,0,0,0,0])];
-                        novoHistorico[5] = novoNivel;
+                    if (pzAlvo && chaveAlvo) {
+                        const novoHistorico = [...(pzAlvo.historico || [0,0,0,0,0,0])];
+                        if (novoHistorico.length >= 6) novoHistorico.shift();
+                        novoHistorico.push(novoNivel);
 
-                        update(ref(db, `piezometros/${primeiraChave}`), {
-                            nivel: novoNivel,
-                            historico: novoHistorico
-                        });
+                        // Atualiza no Firebase apenas se houver usuário autenticado logado
+                        if (usuarioLogado) {
+                            await update(ref(db, `piezometros/${chaveAlvo}`), {
+                                nivel: novoNivel,
+                                historico: novoHistorico,
+                                ultimaAtualizacao: new Date().toISOString()
+                            });
+                            registrarEvento(`ThingSpeak lido (PZ-01: ${novoNivel.toFixed(1)} cm)`);
+                        }
 
-                        registrarEvento(`ThingSpeak atualizado (PZ-01: ${novoNivel.toFixed(1)} cm)`);
+                        if (statusText) statusText.innerText = "ThingSpeak Conectado";
                     }
-
-                    if (statusText) statusText.innerText = "ThingSpeak Conectado";
                 }
             }
         } catch (erro) {
-            if (statusText) statusText.innerText = "ThingSpeak Offline / Polling";
+            console.error("⚠️ [Erro ThingSpeak/Firebase]:", erro);
+            if (statusText) statusText.innerText = "ThingSpeak Offline / Erro";
         }
     }
 
-    // Injeta Dinamicamente a Modal de Login e a Badge de Usuário no HTML
+    // Injeta Dinamicamente a Modal de Login e a Badge de Usuário
     function injetarElementosInterface() {
-        // 1. Injeta a Badge no Cabeçalho
         const cabecalho = document.querySelector('header .flex.items-center.space-x-4') || document.querySelector('header');
         if (cabecalho && !document.getElementById('user-profile-badge')) {
             const badgeDiv = document.createElement('div');
@@ -953,7 +962,6 @@
             cabecalho.prepend(badgeDiv);
         }
 
-        // 2. Injeta a Modal de Login se não existir
         if (!document.getElementById('modal-login-overlay')) {
             const modalDiv = document.createElement('div');
             modalDiv.id = 'modal-login-overlay';
@@ -980,6 +988,11 @@
                         <button type="submit" class="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2.5 rounded-xl transition-all shadow-lg shadow-blue-600/20 text-sm">
                             Entrar no Sistema
                         </button>
+                        <div class="text-center pt-2 border-t border-slate-800/80">
+                            <p class="text-[11px] text-slate-500">
+                                Não possui um login? Solicite ao administrador do sistema.
+                            </p>
+                        </div>
                     </form>
                 </div>
             `;
@@ -995,7 +1008,7 @@
         lerDadosDoSensor();
         setInterval(lerDadosDoSensor, 15000);
 
-        // Cadastro vinculando o Usuário Atual (UID e Email)
+        // Cadastro de Piezômetro
         const formCadastrar = document.getElementById('form-cadastrar');
         if (formCadastrar) {
             formCadastrar.addEventListener('submit', function(e) {
