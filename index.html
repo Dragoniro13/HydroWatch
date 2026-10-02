@@ -209,7 +209,7 @@
                     <div>
                         <p class="text-xs font-medium text-slate-400">Alertas Críticos</p>
                         <h3 id="home-card-criticos" class="text-2xl font-bold text-red-400 mt-1">--</h3>
-                        <p class="text-[11px] text-slate-500 mt-1">Nível &lt; 4.0 cm (Atenção)</p>
+                        <p class="text-[11px] text-slate-500 mt-1">Nível &lt; 10.0 cm (Atenção)</p>
                     </div>
                     <div class="w-12 h-12 rounded-xl bg-red-500/10 text-red-400 flex items-center justify-center text-xl">
                         <i class="fa-solid fa-triangle-exclamation"></i>
@@ -290,7 +290,7 @@
                         <div class="bg-slate-900/60 p-4 rounded-xl border border-slate-800 space-y-2">
                             <div class="flex items-center space-x-2 text-red-400 font-semibold text-sm">
                                 <i class="fa-solid fa-triangle-exclamation"></i>
-                                <span>Regra de Alerta (&lt; 4.0 cm)</span>
+                                <span>Regra de Alerta (&lt; 10.0 cm)</span>
                             </div>
                             <p class="text-xs text-slate-400 leading-relaxed">
                                 Leituras freáticas abaixo do limite operacional de <strong>4.0 cm</strong> disparam o status automático de <span class="text-red-400 font-medium">Alerta</span>, indicando anomalia de rebaixamento ou secagem acelerada.
@@ -398,7 +398,7 @@
                 <div class="flex items-center space-x-2">
                     <span class="text-xs text-slate-400">Legenda:</span>
                     <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Operacional</span>
-                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">Alerta (&lt;4.0 cm)</span>
+                    <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-red-500/20 text-red-400 border border-red-500/30">Alerta (&lt;10.0 cm)</span>
                     <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-400 border border-amber-500/30">Manutenção</span>
                 </div>
             </div>
@@ -541,7 +541,7 @@
     }
 
     const urlThingSpeak = "https://api.thingspeak.com/channels/3469733/fields/1/last.json";
-    const LIMITE_ALERTA = 4.0;
+    const LIMITE_ALERTA = 10.0;
 
     const dadosIniciaisPadrao = [
         { id: 'PZ-01', local: 'Montante (Barragem A)', nivel: 0.0, status: 'Alerta', historico: [0, 0, 0, 0, 0, 0], criadoPor: 'sistema' },
